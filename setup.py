@@ -26,7 +26,6 @@ setup(
     author='Giuseppe De Marco',
     author_email='giuseppe.demarco@unical.it',
     license='License :: OSI Approved :: GNU Affero General Public License v3',
-    scripts=[f'{_pkg_name}/bin/{_pkg_name}'],
     packages=[f"{_pkg_name}"],
     package_dir={f"{_pkg_name}": f"{_pkg_name}"},
     package_data={f"{_pkg_name}": [
