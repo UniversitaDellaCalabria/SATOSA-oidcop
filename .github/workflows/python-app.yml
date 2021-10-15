@@ -56,7 +56,7 @@ jobs:
         flake8 ./satosa_oidcop --count --exit-zero --statistics --max-line-length 120
     - name: pytest
       run: |
-        pytest --cov=satosa_oidcop -v --cov-report term --cov-fail-under=97 tests/
+        pytest --cov=satosa_oidcop -v --cov-report term --cov-fail-under=95 tests/
     #- name: Upload coverage to Codecov
       #uses: codecov/codecov-action@v1
       #with:
