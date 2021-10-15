@@ -83,7 +83,7 @@ OIDCOP_CONF = {
   "server_name": "localhost",
   "base_url": BASE_URL,
   "storage": {
-    "class": "satosa.frontends.oidcop.storage.mongo.Mongodb",
+    "class": "satosa_oidcop.core.storage.mongo.Mongodb",
     "kwargs": {
       "url": "mongodb://127.0.0.1:27017/oidcop",
       "connection_params": {
@@ -116,7 +116,7 @@ OIDCOP_CONF = {
       "authentication": {
         "user": {
           "acr": "urn:oasis:names:tc:SAML:2.0:ac:classes:InternetProtocolPassword",
-          "class": "satosa.frontends.oidcop.user_authn.SatosaAuthnMethod"
+          "class": "satosa_oidcop.core.user_authn.SatosaAuthnMethod"
         }
       },
       "authz": {
@@ -375,7 +375,7 @@ OIDCOP_CONF = {
         }
       },
       "userinfo": {
-        "class": "satosa.frontends.oidcop.user_info.SatosaOidcUserInfo"
+        "class": "satosa_oidcop.core.user_info.SatosaOidcUserInfo"
       }
     }
   }
