@@ -2,7 +2,6 @@
 The OpenID Connect frontend module for the satosa proxy
 """
 import base64
-import json
 import logging
 import os
 from urllib.parse import urlencode
@@ -19,16 +18,14 @@ from oidcop.exception import InvalidClient
 from oidcop.exception import UnAuthorizedClient
 from oidcop.exception import UnknownClient
 from oidcop.oidc.registration import random_client_id
-from oidcop.oidc.token import Token
 
 import satosa.logging_util as lu
 from satosa.context import Context
 from satosa.internal import InternalData
 from satosa.frontends.base import FrontendModule
-from satosa.response import Response
 from satosa.response import SeeOther
 from .core.application import oidcop_application as oidcop_app
-from .core.claims import *
+from .core.claims import combine_claim_values
 from .core.response import JsonResponse
 
 
@@ -36,7 +33,7 @@ IGNORED_HEADERS = ["cookie", "user-agent"]
 logger = logging.getLogger(__name__)
 
 
-class ExtendedContext(Context): # pragma: no cover
+class ExtendedContext(Context):  # pragma: no cover
     def __init__(self, **kwargs):
         super().__init__()
         self.http_headers = {}
@@ -50,10 +47,10 @@ class OidcOpUtils(object):
     Interoperability class between satosa and oidcop
     """
 
-    def __init__(self): # pragma: no cover
+    def __init__(self):  # pragma: no cover
         self.app = None
 
-    def _load_cdb(self, context: ExtendedContext, client_id:str = None) -> dict:
+    def _load_cdb(self, context: ExtendedContext, client_id: str = None) -> dict:
         """
         gets client_id from local storage and updates the client DB
         """
@@ -67,13 +64,17 @@ class OidcOpUtils(object):
 
         if client_id:
             client = self.app.storage.get_client_by_id(client_id)
-        elif 'Basic ' in getattr(context, 'request_authorization', ""):
+        elif "Basic " in getattr(context, "request_authorization", ""):
             # here even for introspection endpoint
-            client = self.app.storage.get_client_by_basic_auth(
-                        context.request_authorization
-            ) or {}
+            client = (
+                self.app.storage.get_client_by_basic_auth(
+                    context.request_authorization)
+                or {}
+            )
             client_id = client.get("client_id")
-        elif context.request and context.request.get('client_assertion'): # pragma: no cover
+        elif context.request and context.request.get(
+            "client_assertion"
+        ):  # pragma: no cover
             # this is not a validation just a client detection
             # validation is demanded later to oidcop parse_request
 
@@ -82,60 +83,57 @@ class OidcOpUtils(object):
             # because the user MUST always pass though authorization endpoint
             ####
             token = AuthnToken().from_jwt(
-                txt=context.request['client_assertion'],
-                keyjar=KeyJar(), # keyless keyjar
-                verify=False # otherwise keyjar would contains the issuer key
+                txt=context.request["client_assertion"],
+                keyjar=KeyJar(),  # keyless keyjar
+                verify=False,  # otherwise keyjar would contains the issuer key
             )
-            client_id = token.get('iss')
+            client_id = token.get("iss")
             client = self.app.storage.get_client_by_id(client_id)
-        else: # pragma: no cover
+        else:  # pragma: no cover
             _ec.cdb = {}
             _msg = f"Client {client_id} not found!"
             logger.warning(_msg)
             raise InvalidClient(_msg)
 
         if client:
-            _ec.cdb = {client_id : client}
+            _ec.cdb = {client_id: client}
             logger.debug(
-                f"Loaded oidcop client from {self.app.storage}: {client}"
-            )
-        else: # pragma: no cover
+                f"Loaded oidcop client from {self.app.storage}: {client}")
+        else:  # pragma: no cover
             logger.info(f'Cannot find "{client_id}" in client DB')
             raise UnknownClient(client_id)
 
         # TODO - consider to handle also basic auth for clients ...
         # BUT specs are against!
         # https://openid.net/specs/openid-connect-registration-1_0.html#ReadRequest
-        _rat = client.get('registration_access_token')
+        _rat = client.get("registration_access_token")
         if _rat:
-            _ec.registration_access_token[_rat] = client['client_id']
+            _ec.registration_access_token[_rat] = client["client_id"]
         else:
             _ec.registration_access_token = {}
         return client
-
 
     def _get_http_headers(self, context: ExtendedContext):
         """
         aligns parameters for oidcop interoperability needs
         """
-        _cookies = []
-        http_headers = {'headers': {}}
+        http_headers = {"headers": {}}
 
         # actually cookies are not used
         # if getattr(context, 'cookie', None):
-            # for i in context.cookie.split(";"):
-                # splitted = i.split("=")
-                # if len(splitted) > 1:
-                    # _cookies.append(
-                        # {
-                         # "name": splitted[0].strip(),
-                         # "value": splitted[1].strip()
-                        # }
-                    # )
+        # for i in context.cookie.split(";"):
+        # splitted = i.split("=")
+        # if len(splitted) > 1:
+        # _cookies.append(
+        # {
+        # "name": splitted[0].strip(),
+        # "value": splitted[1].strip()
+        # }
+        # )
         # if _cookies:
-            # http_headers["cookie"] = _cookies
+        # http_headers["cookie"] = _cookies
 
-        if getattr(context, 'http_headers', None):
+        if getattr(context, "http_headers", None):
             http_headers = {
                 "headers": {
                     k.lower(): v
@@ -148,9 +146,9 @@ class OidcOpUtils(object):
 
         # for token and userinfo endpoint ... but also for authz endpoint if needed
         if getattr(context, "request_authorization", None):
-            http_headers["headers"].update({
-                "authorization": context.request_authorization
-            })
+            http_headers["headers"].update(
+                {"authorization": context.request_authorization}
+            )
         return http_headers
 
     def store_session_to_db(self, claims=None):
@@ -160,7 +158,8 @@ class OidcOpUtils(object):
 
     def load_session_from_db(self, parse_req, http_headers):
         sman = self.app.server.server_get("endpoint_context").session_manager
-        claims = self.app.storage.load_session_from_db(parse_req, http_headers, sman)
+        claims = self.app.storage.load_session_from_db(
+            parse_req, http_headers, sman)
         logger.debug(f"Loaded oidcop session from db: {sman.dump()}")
         return claims
 
@@ -178,14 +177,14 @@ class OidcOpUtils(object):
         actions to perform before an endpoint handles a new http request
         """
         self._flush_endpoint_context_memory()
-        data = self.load_session_from_db(parse_req, http_headers)
+        self.load_session_from_db(parse_req, http_headers)
 
         # that's actually useless
         # if data and not self.dump_clients():
-            # for i in data['db'].keys():
-                # if i.count(';;') == 2:
-                    # client_id = i.split(';;')[1]
-                    # self._load_cdb({}, client_id = client_id)
+        # for i in data['db'].keys():
+        # if i.count(';;') == 2:
+        # client_id = i.split(';;')[1]
+        # self._load_cdb({}, client_id = client_id)
 
     def _parse_request(
         self, endpoint, context: ExtendedContext, http_headers: dict = None
@@ -196,11 +195,13 @@ class OidcOpUtils(object):
         """
         http_headers = http_headers or self._get_http_headers(context)
         try:
-            parse_req = endpoint.parse_request(context.request, http_info=http_headers)
+            parse_req = endpoint.parse_request(
+                context.request, http_info=http_headers)
         except (InvalidClient, UnknownClient, UnAuthorizedClient) as err:
             logger.error(err)
             response = JsonResponse(
-                {"error": "unauthorized_client", "error_description": str(err)},
+                {"error": "unauthorized_client",
+                    "error_description": str(err)},
                 status="403",
             )
             return self.send_response(response)
@@ -215,12 +216,12 @@ class OidcOpUtils(object):
             return self.send_response(parse_req)
 
         try:
-            proc_req = endpoint.process_request(parse_req, http_info=http_headers)
+            proc_req = endpoint.process_request(
+                parse_req, http_info=http_headers)
             return proc_req
-        except Exception as err: # pragma: no cover
+        except Exception as err:  # pragma: no cover
             logger.error(
-                f"In endpoint.process_request: {parse_req.__dict__} - {err}"
-            )
+                f"In endpoint.process_request: {parse_req.__dict__} - {err}")
             response = JsonResponse(
                 {
                     "error": "invalid_request",
@@ -232,12 +233,13 @@ class OidcOpUtils(object):
 
     def _log_request(self, context: ExtendedContext, msg: str, level: str = "debug"):
         _msg = f"{msg}: {context.request}"
-        logline = lu.LOG_FMT.format(id=lu.get_session_id(context.state), message=msg)
+        logline = lu.LOG_FMT.format(
+            id=lu.get_session_id(context.state), message=_msg)
         getattr(logger, level)(logline)
 
     def handle_error(
         self, msg: str = None, excp: Exception = None, status: str = "403"
-    ): # pragma: no cover
+    ):  # pragma: no cover
         _msg = f'Something went wrong ... {excp or ""}'
         msg = msg or _msg
         logger.error(msg)
@@ -248,15 +250,15 @@ class OidcOpUtils(object):
         self._flush_endpoint_context_memory()
         return response
 
-    def dump_clients(self): # pragma: no cover
+    def dump_clients(self):  # pragma: no cover
         return self.app.server.server_get("endpoint_context").cdb
 
-    def dump_sessions(self): # pragma: no cover
+    def dump_sessions(self):  # pragma: no cover
         return self.app.server.server_get("endpoint_context").session_manager.dump()
 
 
 class OidcOpEndpoints(OidcOpUtils):
-    """ Handles all the oidc endpoint """
+    """Handles all the oidc endpoint"""
 
     def jwks_endpoint(self, context: Context):
         """
@@ -283,7 +285,8 @@ class OidcOpEndpoints(OidcOpUtils):
         logger.info(f'Request at the "{endpoint.name}" endpoint')
         http_headers = self._get_http_headers(context)
 
-        parse_req = endpoint.parse_request(context.request, http_info=http_headers)
+        parse_req = endpoint.parse_request(
+            context.request, http_info=http_headers)
         proc_req = endpoint.process_request(parse_req, http_info=http_headers)
 
         info = endpoint.do_response(request=context.request, **proc_req)
@@ -298,10 +301,10 @@ class OidcOpEndpoints(OidcOpUtils):
         self._load_cdb(context)
 
         endpoint = self.app.server.endpoint["authorization"]
-        http_headers = self._get_http_headers(context)
+        self._get_http_headers(context)
 
         internal_req = self._handle_authn_request(context, endpoint)
-        if not isinstance(internal_req, InternalData): # pragma: no cover
+        if not isinstance(internal_req, InternalData):  # pragma: no cover
             return self.send_response(internal_req)
 
         return self.auth_req_callback_func(context, internal_req)
@@ -321,24 +324,27 @@ class OidcOpEndpoints(OidcOpUtils):
 
         try:
             self._load_cdb(context)
-        except UnknownClient as e:
-            return self.send_response(JsonResponse(
-                    {'error': 'unauthorized_client',
-                     'error_description': 'unknown client'}
+        except UnknownClient:
+            return self.send_response(
+                JsonResponse(
+                    {
+                        "error": "unauthorized_client",
+                        "error_description": "unknown client",
+                    }
                 )
             )
 
         raw_request = AccessTokenRequest().from_urlencoded(urlencode(context.request))
         self._load_session(raw_request, endpoint, http_headers)
         # in token endpoint we cannot parse a request without having loaded cdb and session first
-        parse_req = self._parse_request(endpoint, context, http_headers=http_headers)
-        proc_req = self._process_request(endpoint, context, parse_req, http_headers)
-        if isinstance(proc_req, JsonResponse): # pragma: no cover
+        parse_req = self._parse_request(
+            endpoint, context, http_headers=http_headers)
+        proc_req = self._process_request(
+            endpoint, context, parse_req, http_headers)
+        if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
         elif isinstance(proc_req, TokenErrorResponse):
-            return self.send_response(
-                JsonResponse(proc_req.to_dict(), status= "403")
-            )
+            return self.send_response(JsonResponse(proc_req.to_dict(), status="403"))
 
         # better return jwt or jwe here!
         self.store_session_to_db()
@@ -353,7 +359,8 @@ class OidcOpEndpoints(OidcOpUtils):
         # everything depends by bearer access token here
         self._load_session({}, endpoint, http_headers)
 
-        parse_req = self._parse_request(endpoint, context, http_headers=http_headers)
+        parse_req = self._parse_request(
+            endpoint, context, http_headers=http_headers)
 
         ec = endpoint.server_get("endpoint_context")
         # Load claims
@@ -364,7 +371,7 @@ class OidcOpEndpoints(OidcOpUtils):
                 sid = k
                 claims = self.app.storage.get_claims_from_sid(sid)
                 break
-        else: # pragma: no cover
+        else:  # pragma: no cover
             logger.warning(
                 "UserInfo endoint: Can't find any suitable sid/claims from stored session"
             )
@@ -372,12 +379,13 @@ class OidcOpEndpoints(OidcOpUtils):
         ec.userinfo.load(claims)
         # end load claims
 
-        proc_req = self._process_request(endpoint, context, parse_req, http_headers)
+        proc_req = self._process_request(
+            endpoint, context, parse_req, http_headers)
         # flush as soon as possible, otherwise in case of an exception it would be
         # stored in the object ... until a next .load would happen ...
         ec.userinfo.flush()
 
-        if isinstance(proc_req, JsonResponse): # pragma: no cover
+        if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
 
         # better return jwt or jwe here!
@@ -401,12 +409,14 @@ class OidcOpEndpoints(OidcOpUtils):
         :return: HTTP response to the client
         """
         self._log_request(context, "Client Registration Read endpoint request")
-        client = self._load_cdb(context)
+        self._load_cdb(context)
         http_headers = self._get_http_headers(context)
         endpoint = self.app.server.endpoint["registration_read"]
-        parse_req = self._parse_request(endpoint, context, http_headers=http_headers)
-        proc_req = self._process_request(endpoint, context, parse_req, http_headers)
-        if isinstance(proc_req, JsonResponse): # pragma: no cover
+        parse_req = self._parse_request(
+            endpoint, context, http_headers=http_headers)
+        proc_req = self._process_request(
+            endpoint, context, parse_req, http_headers)
+        if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
         # better return jwt or jwe here!
         response = JsonResponse(proc_req["response_args"].to_dict())
@@ -424,13 +434,15 @@ class OidcOpEndpoints(OidcOpUtils):
         self._log_request(context, "Client Registration endpoint request")
         http_headers = self._get_http_headers(context)
         endpoint = self.app.server.endpoint["registration"]
-        parse_req = self._parse_request(endpoint, context, http_headers=http_headers)
-        proc_req = self._process_request(endpoint, context, parse_req, http_headers)
-        if isinstance(proc_req, JsonResponse): # pragma: no cover
+        parse_req = self._parse_request(
+            endpoint, context, http_headers=http_headers)
+        proc_req = self._process_request(
+            endpoint, context, parse_req, http_headers)
+        if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
         # store client to storage
         client_data = context.request
-        client_data['client_id'] = random_client_id(
+        client_data["client_id"] = random_client_id(
             reserved=self.app.storage.get_registered_clients_id()
         )
         self.app.storage.insert_client(client_data)
@@ -443,9 +455,11 @@ class OidcOpEndpoints(OidcOpUtils):
 
         self._load_session(context.request, endpoint, http_headers)
 
-        parse_req = self._parse_request(endpoint, context, http_headers=http_headers)
-        proc_req = self._process_request(endpoint, context, parse_req, http_headers)
-        if isinstance(proc_req, JsonResponse): # pragma: no cover
+        parse_req = self._parse_request(
+            endpoint, context, http_headers=http_headers)
+        proc_req = self._process_request(
+            endpoint, context, parse_req, http_headers)
+        if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
 
         # better return jwt or jwe here!
@@ -508,20 +522,22 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
 
         http_headers = self._get_http_headers(context)
         self._load_cdb(context)
-        parse_req = self._parse_request(endpoint, context, http_headers=http_headers)
+        parse_req = self._parse_request(
+            endpoint, context, http_headers=http_headers)
         if isinstance(parse_req, AuthorizationErrorResponse):
             logger.debug(f"{context.request}, {parse_req._dict}")
             return self.send_response(parse_req._dict)
 
         self._load_session(parse_req, endpoint, http_headers)
-        proc_req = self._process_request(endpoint, context, parse_req, http_headers)
-        if isinstance(proc_req, JsonResponse): # pragma: no cover
+        proc_req = self._process_request(
+            endpoint, context, parse_req, http_headers)
+        if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return proc_req
 
         try:
             info = endpoint.do_response(request=context.request, **proc_req)
             # response = info['response']
-        except Exception as excp: # pragma: no cover
+        except Exception as excp:  # pragma: no cover
             # TODO - something to be done with the help of unit test
             # this should be for humans if auth code flow
             # and JsonResponse for other flows ...
@@ -535,7 +551,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         subject_type = _client_conf.get("subject_type", "pairwise")
         if client_name:
             requester_name = [{"lang": "en", "text": client_name}]
-        else: # pragma: no cover
+        else:  # pragma: no cover
             requester_name = None
 
         internal_req = InternalData(
@@ -588,15 +604,16 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         http_headers = self._get_http_headers(context)
         oidc_req = context.state[self.name]["oidc_request"]
         endpoint = self.app.server.endpoint["authorization"]
-        self._load_cdb(context, client_id = oidc_req['client_id'])
+        self._load_cdb(context, client_id=oidc_req["client_id"])
 
         # not using self._parse_request cause of "Missing required attribute 'response_type'"
         parse_req = AuthorizationRequest().from_urlencoded(urlencode(oidc_req))
         # not really needed here ... because nothing have been dumped before
         # self._load_session(parse_req, endpoint, http_headers)
-        proc_req = self._process_request(endpoint, context, parse_req, http_headers)
+        proc_req = self._process_request(
+            endpoint, context, parse_req, http_headers)
 
-        if isinstance(proc_req, JsonResponse): # pragma: no cover
+        if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
 
         client_id = parse_req["client_id"]
@@ -633,15 +650,17 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
                 request=parse_req,
                 authn_event=authn_event,
             )
-        except ValueError as excp: # pragma: no cover
+        except ValueError as excp:  # pragma: no cover
             # TODO - cover with unit test and add some satosa logging ...
             return self.handle_error(excp=excp)
-        except Exception as excp: # pragma: no cover
+        except Exception as excp:  # pragma: no cover
             return self.handle_error(excp=excp)
 
-        if isinstance(_args, ResponseMessage) and "error" in _args: # pragma: no cover
+        if isinstance(_args, ResponseMessage) and "error" in _args:  # pragma: no cover
             return self.send_response(JsonResponse(_args, status="403"))
-        elif isinstance(_args.get("response_args"), AuthorizationErrorResponse): # pragma: no cover
+        elif isinstance(
+            _args.get("response_args"), AuthorizationErrorResponse
+        ):  # pragma: no cover
             rargs = _args.get("response_args")
             logger.error(rargs)
             response = JsonResponse(rargs.to_json(), status="403")
@@ -657,7 +676,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
             redirect_url = info_response + f"{urlencode(data)}"
             logger.debug(f"Redirect to: {redirect_url}")
             resp = SeeOther(redirect_url)
-        else: # pragma: no cover
+        else:  # pragma: no cover
             self._flush_endpoint_context_memory()
             raise NotImplementedError()
 
@@ -671,9 +690,11 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         :type internal_resp: satosa.internal.InternalData
         :rtype satosa.response.SeeOther
         """
-        _claims = self.converter.from_internal("openid", internal_resp.attributes)
+        _claims = self.converter.from_internal(
+            "openid", internal_resp.attributes)
         claims = {k: v for k, v in _claims.items() if v}
-        combined_claims = dict([i for i in combine_claim_values(claims.items())])
+        combined_claims = dict(
+            [i for i in combine_claim_values(claims.items())])
 
         response = self._handle_backend_response(context, internal_resp)
         # TODO - why should we have to delete it?

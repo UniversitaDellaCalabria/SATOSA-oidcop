@@ -18,8 +18,8 @@ from oidcop.exception import UnAuthorizedClient
 from saml2.authn_context import PASSWORD
 from satosa.attribute_mapping import AttributeMapper
 from satosa.context import Context
-from satosa.frontends.idpy_oidcop import OidcOpFrontend
-from satosa.frontends.oidcop.storage.mongo import Mongodb
+from satosa_oidcop.idpy_oidcop import OidcOpFrontend
+from satosa_oidcop.core.storage.mongo import Mongodb
 from satosa.internal import AuthenticationInformation
 from satosa.internal import InternalData
 from tests.users import USERS

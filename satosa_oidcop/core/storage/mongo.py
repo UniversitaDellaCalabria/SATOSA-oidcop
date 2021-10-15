@@ -34,10 +34,10 @@ class Mongodb(SatosaOidcStorage):
         self.client_db = None
         self.session_db = None
 
-
     def _connect(self):
         if not self.client or not self.client.server_info():
-            self.client = pymongo.MongoClient(self.url, **self.connection_params)
+            self.client = pymongo.MongoClient(
+                self.url, **self.connection_params)
             self.db = getattr(self.client, self.storage_conf["db_name"])
             self.client_db = self.db[self.storage_conf["collections"]["client"]]
             self.session_db = self.db[self.storage_conf["collections"]["session"]]
@@ -99,7 +99,7 @@ class Mongodb(SatosaOidcStorage):
                     iss_tokens[k] = i[k]["value"]
 
                 for token_type, attr in self.token_attr_map.items():
-                        data[attr] = iss_tokens.get(token_type)
+                    data[attr] = iss_tokens.get(token_type)
 
         logger.debug(f"Stored oidcop session data to MongoDB: {data}")
 
@@ -141,13 +141,13 @@ class Mongodb(SatosaOidcStorage):
             _q = {
                 "access_token": http_authz.replace("Bearer ", ""),
             }
-        elif parse_req.get('token'):
+        elif parse_req.get("token"):
             _q = {
-                "access_token": parse_req['token'],
+                "access_token": parse_req["token"],
             }
-        elif parse_req.get('grant_type') == 'refresh_token':
+        elif parse_req.get("grant_type") == "refresh_token":
             _q = {
-                "refresh_token": parse_req['refresh_token'],
+                "refresh_token": parse_req["refresh_token"],
             }
         else:
             logger.warning(
@@ -172,36 +172,35 @@ class Mongodb(SatosaOidcStorage):
         if res.count():
             return res.next()["claims"]
 
-    def insert_client(self, client_data:dict):
+    def insert_client(self, client_data: dict):
         _client_data = copy.deepcopy(client_data)
         self._connect()
-        client_id = _client_data['client_id']
+        client_id = _client_data["client_id"]
         if self.get_client_by_id(client_id):
-            logger.warning(f"OIDC Client {client_id} already present in the client db")
+            logger.warning(
+                f"OIDC Client {client_id} already present in the client db")
             return
         self.client_db.insert(_client_data)
 
-    def get_client_by_basic_auth(self, request_authorization:str):
+    def get_client_by_basic_auth(self, request_authorization: str):
         cred = base64.b64decode(
-                request_authorization.replace('Basic ', '').encode()
-        )
+            request_authorization.replace("Basic ", "").encode())
         if not cred:
             return
 
-        cred = cred.decode().split(':')
+        cred = cred.decode().split(":")
         if len(cred) == 2:
             client_id = cred[0]
             client_secret = cred[1]
 
             self._connect()
             res = self.client_db.find(
-                {"client_id": client_id,
-                 "client_secret": client_secret}
+                {"client_id": client_id, "client_secret": client_secret}
             )
             if res.count():
                 return res.next()
 
     def get_registered_clients_id(self):
         self._connect()
-        res = self.client_db.distinct('client_id')
+        res = self.client_db.distinct("client_id")
         return res
