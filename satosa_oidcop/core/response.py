@@ -1,6 +1,6 @@
 import json
 
-from satosa.responses import Response
+from satosa.response import Response
 
 
 class JsonResponse(Response):
