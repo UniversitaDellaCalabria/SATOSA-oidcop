@@ -1,0 +1,100 @@
+# This repository adheres to the publiccode.yml standard by including this
+# metadata file that makes public software easily discoverable.
+# More info at https://github.com/italia/publiccode.yml
+
+publiccodeYmlVersion: '0.2'
+categories:
+  - identity-management
+dependsOn:
+  open:
+    - name: MariaDB
+      optional: false
+      version: ''
+      versionMax: ''
+      versionMin: ''
+    - name: Python
+      optional: false
+      version: ''
+      versionMax: ''
+      versionMin: ''
+    - name: Django
+      optional: false
+      version: ''
+      versionMax: ''
+      versionMin: ''
+description:
+  en:
+    documentation: 'https://github.com/UniversitaDellaCalabria/satosa-oidcop/'
+    features:
+      Supported endpoints:
+        - provider discovery
+        - authorization
+        - token
+        - userinfo
+        - registration
+        - registration_read endpoint
+        - introspection endpoint
+    genericName: web application
+    longDescription: >
+      SATOSA Frontend based on identity python oidcop.
+
+      satosa-oidcop is based on identity python oidcop and enable your SATOSA proxy with OAuth2 Client and OIDC Relying Parties.
+      OIDCop is a Python implementation of an OIDC Provider on top of jwtconnect.io that shows you how to ‘build’ an OP using the classes and functions provided by oidc-op.
+      A working example project is available in this github italia repository: https://github.com/italia/Satosa-Saml2Spid/
+
+      Supported endpoints:
+        - provider discovery
+        - authorization
+        - token
+        - userinfo
+        - registration
+        - registration_read endpoint
+        - introspection endpoint
+    shortDescription: SATOSA IAM Proxy OIDC frontend based on oidcop
+developmentStatus: stable
+intendedAudience:
+  scope:
+    - employment
+it:
+  conforme:
+    gdpr: true
+    lineeGuidaDesign: false
+    misureMinimeSicurezza: true
+    modelloInteroperabilita: false
+  countryExtensionVersion: '0.2'
+  piattaforme:
+    anpr: false
+    cie: false
+    pagopa: false
+    spid: false
+  riuso:
+    codiceIPA: unical
+landingURL: 'https://github.com/UniversitaDellaCalabria/satosa-oidcop'
+legal:
+  authorsFile: >-
+    https://github.com/UniversitaDellaCalabria/satosa-oidcop/blob/master/AUTHORS
+  license: AGPL-3.0-or-later
+  mainCopyrightOwner: Università della Calabria
+localisation:
+  availableLanguages:
+    - it
+    - en
+  localisationReady: true
+maintenance:
+  contacts:
+    - affiliation: unical.it
+      email: giuseppe.demarco@unical.it
+      name: Giuseppe De Marco
+  type: internal
+name: satosa-oidcop
+platforms:
+  - linux
+  - web
+releaseDate: '2021-10-13'
+roadmap: 'https://github.com/UniversitaDellaCalabria/satosa-oidcop/issues'
+softwareType: standalone/web
+softwareVersion: 1.2.0
+url: 'https://github.com/UniversitaDellaCalabria/satosa-oidcop'
+usedBy:
+  - Università della Calabria - https://www.unical.it
+  - Istituto Superiore per la Protezione e la Ricerca Ambientale - https://www.isprabiente.gov.it
