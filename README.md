@@ -110,5 +110,5 @@ pytest tests/
 ## Credits
 
 - Roland Hedberg
-- Andrea Ranaldi <at> ISTRA Ambiente
+- Andrea Ranaldi <at> ISPRA Ambiente
 - Identity Python Community
