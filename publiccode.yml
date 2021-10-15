@@ -72,7 +72,7 @@ it:
 landingURL: 'https://github.com/UniversitaDellaCalabria/SATOSA-oidcop'
 legal:
   authorsFile: >-
-    https://github.com/UniversitaDellaCalabria/SATOSA-oidcop/blob/master/AUTHORS
+    https://github.com/UniversitaDellaCalabria/SATOSA-oidcop/blob/main/AUTHORS
   license: AGPL-3.0-or-later
   mainCopyrightOwner: Università della Calabria
 localisation:
