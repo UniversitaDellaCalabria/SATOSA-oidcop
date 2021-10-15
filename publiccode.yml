@@ -7,7 +7,7 @@ categories:
   - identity-management
 dependsOn:
   open:
-    - name: MariaDB
+    - name: MongoDB
       optional: false
       version: ''
       versionMax: ''
