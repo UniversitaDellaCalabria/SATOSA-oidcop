@@ -24,10 +24,12 @@ pip install satosa_oidcop
 
 Feel free to open issues and pull requests, we build communities!
 
-## Author
+## Authors
 
-Giuseppe De Marco <at> Università della Calabria
+- Giuseppe De Marco <at> Università della Calabria
 
 ## Credits
 
-Andrea Ranaldi <at> ISTRA Ambiente
+- Roland Hedberg
+- Andrea Ranaldi <at> ISTRA Ambiente
+- Identity Python Community
