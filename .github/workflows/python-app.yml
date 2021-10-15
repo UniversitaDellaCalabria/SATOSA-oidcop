@@ -42,7 +42,7 @@ jobs:
       run: |
         # sudo apt-get update && sudo apt-get install xmlsec1
         python -m pip install --upgrade pip
-        python -m pip install --upgrade pip pytest setuptools codecov flake8
+        python -m pip install --upgrade pip pytest pytest-cov setuptools codecov flake8
 
     - name: Install satosa_oidcop
       run: |
