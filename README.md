@@ -1,7 +1,7 @@
 SATOSA oidcop frontend
 ----------------------
 
-SATOSA Frontend based on idetity python oidcop.
+SATOSA Frontend based on [identity python oidcop](https://github.com/IdentityPython/oidc-op).
 
 
 ## Features
@@ -29,6 +29,44 @@ Endpoints:
 pip install satosa_oidcop
 ````
 
+## Configuration
+
+Anyone can migrate its oidcop configuration, from flask_op or django-oidc-op or whatever, in SATOSA and without any particular efforts. Looking at the [example configuration](https://github.com/peppelinux/SATOSA/blob/oidcop_front/example/plugins/frontends/oidc_op_frontend.yaml.example) we see that `config.op.server_info` have a standard SATOSA configuration with the only addition of the following customizations, needed in SATOSA for interoperational needs. These are:
+
+- autentication
+````
+        authentication:
+          user:
+            acr: urn:oasis:names:tc:SAML:2.0:ac:classes:InternetProtocolPassword
+            class: satosa.frontends.oidcop.user_authn.SatosaAuthnMethod
+````
+
+ - userinfo
+ ````
+        userinfo:
+          class: satosa.frontends.oidcop.user_info.SatosaOidcUserInfo
+````
+
+**authentication** inherits `oidcop.user_authn.user.UserAuthnMethod` and overloads two methods involved in user authentication and verification. These tasks are handled by SATOSA in its authentication backends.
+
+**userinfo** inherits `oidcop.user_info.UserInfo` and proposes a way to store the claims of the users when they comes from the backend. The claims are stored in the session database (actually mongodb) and then they will be fetched during userinfo endpoint (and also token endpoint, for having  them optionally in id_token claims).
+
+
+#### SSO and cookies
+
+oidcop SSO and cookies were not have been implemented because SATOSA doesn't support logout, because of this they are quite useless at this moment.
+
+#### Client and Session Storage
+
+MongoDB is the storage, [here](https://github.com/italia/Satosa-Saml2Spid/tree/oidcop/mongo) some brief descriptions for a demo setup. The interface to SATOSA oidcop storage is `satosa.frontends.oidcop.storage.base.SatosaOidcStorage` and it have three methods:
+
+- **get_client_by_id**(self, client_id:str, expired:bool = True)
+- **store_session_to_db**(self, session_manager, **kwargs)
+- **load_session_from_db**(self, req_args, http_headers, session_manager, **kwargs)
+
+`satosa.frontends.oidcop.storage.mongo.Mongodb` overloads them to have I/O operations on mongodb.
+
+
 ## Demo
 
 [Satosa-Saml2Spid](https://github.com/italia/Satosa-Saml2Spid/) is a custom Satosa configuration to deal with many SAML2 and OIDC Relying parties and many eduGain and SPID Identity Provider.
@@ -38,6 +76,13 @@ pip install satosa_oidcop
 ## Contributions
 
 Feel free to open issues and pull requests, we build communities!
+
+## Developer notes
+
+#### Storage design
+At this time the storage logic is based on oidcop session_manager load/dump/flush methods.
+Each time a request is handled by an endpoint the oidcop session manager loads the definition from the storage, **only which one are strictly related to the request will be loaded** in the in memory storage of oidcop.
+
 
 ## Roadmap
 
