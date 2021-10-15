@@ -26,7 +26,7 @@ from satosa.context import Context
 from satosa.internal import InternalData
 from satosa.response import Response
 from satosa.response import SeeOther
-from .base import FrontendModule
+from satosa.base import FrontendModule
 from .core.application import oidcop_application as oidcop_app
 from .core.claims import *
 from .core.response import JsonResponse
