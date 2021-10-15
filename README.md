@@ -104,7 +104,7 @@ Before you run the tests mind that you've to start a local mongod instance.
 
 ````
 pip install pytest
-pytest tests/
+pytest --cov=satosa_oidcop -v --cov-report term --cov-fail-under=95 tests/
 ````
 
 ## Authors
