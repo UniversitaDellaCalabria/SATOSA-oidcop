@@ -49,6 +49,15 @@ Feel free to open issues and pull requests, we build communities!
 * [ ] ~rfc7523 - private_key_jwt test~ > a RP cannot reach the token endpoint if a user have not passed by authz endpoint before. private_key_jwt is a kind of authentication where the user interaction is not needed.
 * [ ] DPoP support
 
+## Tests
+
+Before you run the tests mind that you've to start a local mongod instance.
+
+````
+pip install pytest
+pytest tests/
+````
+
 ## Authors
 
 - Giuseppe De Marco <at> Università della Calabria
