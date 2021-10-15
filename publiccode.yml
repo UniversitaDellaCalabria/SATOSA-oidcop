@@ -17,7 +17,7 @@ dependsOn:
       version: ''
       versionMax: ''
       versionMin: ''
-    - name: Django
+    - name: SATOSA
       optional: false
       version: ''
       versionMax: ''
