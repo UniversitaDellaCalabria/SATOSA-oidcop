@@ -3,7 +3,6 @@ SATOSA oidcop frontend
 
 ![CI build](https://github.com/UniversitaDellaCalabria/satosa-oidcop/workflows/satosa_oidcop/badge.svg)
 ![Python version](https://img.shields.io/badge/license-Affero%203-blue.svg)
-[![codecov](https://codecov.io/gh/UniversitaDellaCalabria/satosa-oidcop/branch/main/graph/badge.svg)](https://codecov.io/gh/peppelinux/spid-django-oidc)
 ![License](https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9-blue.svg)
 
 SATOSA Frontend based on [identity python oidcop](https://github.com/IdentityPython/oidc-op).
