@@ -24,7 +24,7 @@ Endpoints:
 ## Requirements
 
 - satosa
-- mongodb, see [Satosa-Saml2Spid mongo example](https://github.com/italia/Satosa-Saml2Spid/tree/oidcop/mongo).
+- mongodb, see [Satosa-Saml2Spid mongo example](https://github.com/italia/Satosa-Saml2Spid/tree/master/mongo).
 
 
 ## Setup
@@ -35,7 +35,7 @@ pip install satosa_oidcop
 
 ## Configuration
 
-Anyone can migrate its oidcop configuration, from flask_op or django-oidc-op or whatever, in SATOSA and without any particular efforts. Looking at the [example configuration](https://github.com/peppelinux/SATOSA/blob/oidcop_front/example/plugins/frontends/oidc_op_frontend.yaml.example) we see that `config.op.server_info` have a standard SATOSA configuration with the only addition of the following customizations, needed in SATOSA for interoperational needs. These are:
+Anyone can migrate its oidcop configuration, from flask_op or django-oidc-op or whatever, in SATOSA and without any particular efforts. Looking at the [example configuration](example/oidcop_frontend.yaml) we see that `config.op.server_info` have a standard SATOSA configuration with the only addition of the following customizations, needed in SATOSA for interoperational needs. These are:
 
 - autentication
 ````
