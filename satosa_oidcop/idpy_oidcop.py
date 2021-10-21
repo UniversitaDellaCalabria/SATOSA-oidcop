@@ -17,6 +17,7 @@ from oidcop.authn_event import create_authn_event
 from oidcop.exception import InvalidClient
 from oidcop.exception import UnAuthorizedClient
 from oidcop.exception import UnknownClient
+from oidcop.token.exception import UnknownToken
 from oidcop.oidc.registration import random_client_id
 
 import satosa.logging_util as lu
@@ -302,7 +303,6 @@ class OidcOpEndpoints(OidcOpUtils):
 
         endpoint = self.app.server.endpoint["authorization"]
         self._get_http_headers(context)
-
         internal_req = self._handle_authn_request(context, endpoint)
         if not isinstance(internal_req, InternalData):  # pragma: no cover
             return self.send_response(internal_req)
@@ -337,8 +337,14 @@ class OidcOpEndpoints(OidcOpUtils):
         raw_request = AccessTokenRequest().from_urlencoded(urlencode(context.request))
         self._load_session(raw_request, endpoint, http_headers)
         # in token endpoint we cannot parse a request without having loaded cdb and session first
-        parse_req = self._parse_request(
-            endpoint, context, http_headers=http_headers)
+        try:
+            parse_req = self._parse_request(
+                endpoint, context, http_headers=http_headers)
+        except UnknownToken as exp:
+            return self.send_response(JsonResponse(
+                {"error": "invalid_token", "error_description": "Unknown Token"}, status="403")
+            )
+
         proc_req = self._process_request(
             endpoint, context, parse_req, http_headers)
         if isinstance(proc_req, JsonResponse):  # pragma: no cover
@@ -387,6 +393,10 @@ class OidcOpEndpoints(OidcOpUtils):
 
         if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
+        elif 'error' in proc_req:
+            return self.send_response(
+                JsonResponse(proc_req.to_dict(), status="403")
+            )
 
         # better return jwt or jwe here!
         response = JsonResponse(proc_req["response_args"])

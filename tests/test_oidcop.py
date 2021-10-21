@@ -555,6 +555,13 @@ class TestOidcOpFrontend(object):
         assert _token_resp.get('access_token')
         assert _token_resp.get('id_token')
 
+        # Test UserInfo endpoint with FAULTY access_token
+        context.request = {}
+        _access_token = _token_resp['access_token']
+        context.request_authorization = f"{_token_resp['token_type']} {_access_token[:-2]}"
+        userinfo_resp = frontend.userinfo_endpoint(context)
+        assert userinfo_resp.status == "403"
+
         # Test UserInfo endpoint
         context.request = {}
         _access_token = _token_resp['access_token']
@@ -698,6 +705,12 @@ class TestOidcOpFrontend(object):
         _res = json.loads(refresh_resp.message)
         assert _res.get('refresh_token')
         assert _res.get('access_token')
+
+        # Test FAULTY refresh_token
+        context.request["refresh_token"] = _res.get('refresh_token')[:-2]
+        refresh_resp = frontend.token_endpoint(context)
+        _res = json.loads(refresh_resp.message)
+        assert _res['error'] == "invalid_token"
 
     # def test_private_key_jwt_token_endpoint(self, context, frontend):
         # """
