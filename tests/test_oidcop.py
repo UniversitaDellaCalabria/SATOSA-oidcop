@@ -650,6 +650,30 @@ class TestOidcOpFrontend(object):
         assert res.get('access_token')
         assert res.get('id_token')
 
+        # tests introspection and userinfo with implicit flow
+
+        # Test UserInfo endpoint
+        context.request = {}
+        _access_token = res.get('access_token')
+        context.request_authorization = f"{res['token_type']} {_access_token}"
+        userinfo_resp = frontend.userinfo_endpoint(context)
+
+        _userinfo_resp = json.loads(userinfo_resp.message)
+        assert _userinfo_resp.get("sub")
+
+        # Test token introspection endpoint
+        credentials = f"{CLIENT_1_ID}:{CLIENT_1_PASSWD}"
+        basic_auth = urlsafe_b64encode(credentials.encode("utf-8")).decode("utf-8")
+        _basic_auth = f"Basic {basic_auth}"
+
+        context.request = {
+         'token': _access_token,
+         'token_type_hint': 'access_token'
+        }
+        context.request_authorization = _basic_auth
+        introspection_resp = frontend.introspection_endpoint(context)
+        assert json.loads(introspection_resp.message).get('sub')
+
 
     def test_refresh_token(self, context, frontend, authn_req):
         response_type = "code".split(' ')
