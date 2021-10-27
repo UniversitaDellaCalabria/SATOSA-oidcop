@@ -438,6 +438,13 @@ class TestOidcOpFrontend(object):
         frontend.register_endpoints(["foo_backend"])
         return frontend
 
+    def clean_inmemory(self, frontend):
+        # clean up cdb
+        _ec = frontend.app.server.server_get("endpoint_context")
+        _ec.cdb = {}
+        # sman
+        frontend._flush_endpoint_context_memory()
+
     @pytest.fixture
     def frontend(self, mongodb_instance):
         return self.create_frontend(mongodb_instance, OIDCOP_CONF)
@@ -549,11 +556,16 @@ class TestOidcOpFrontend(object):
         _basic_auth = f"Basic {basic_auth}"
         context.request_authorization = _basic_auth
 
-        token_resp = frontend.token_endpoint(context)
+        # cleanup
+        self.clean_inmemory(frontend)
 
+        token_resp = frontend.token_endpoint(context)
         _token_resp = json.loads(token_resp.message)
         assert _token_resp.get('access_token')
         assert _token_resp.get('id_token')
+
+        # cleanup
+        self.clean_inmemory(frontend)
 
         # Test UserInfo endpoint with FAULTY access_token
         context.request = {}
@@ -570,6 +582,9 @@ class TestOidcOpFrontend(object):
 
         _userinfo_resp = json.loads(userinfo_resp.message)
         assert _userinfo_resp.get("sub")
+
+        # cleanup
+        self.clean_inmemory(frontend)
 
         # Test token introspection endpoint
         context.request = {
