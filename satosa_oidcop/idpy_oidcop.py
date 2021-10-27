@@ -232,7 +232,7 @@ class OidcOpUtils(object):
             )
             return self.send_response(response)
 
-    def _log_request(self, context: ExtendedContext, msg: str, level: str = "debug"):
+    def _log_request(self, context: ExtendedContext, msg: str, level: str = "info"):
         _msg = f"{msg}: {context.request}"
         logline = lu.LOG_FMT.format(
             id=lu.get_session_id(context.state), message=_msg)
@@ -463,8 +463,8 @@ class OidcOpEndpoints(OidcOpUtils):
         endpoint = self.app.server.endpoint["introspection"]
         http_headers = self._get_http_headers(context)
 
+        self._load_cdb(context)
         self._load_session(context.request, endpoint, http_headers)
-
         parse_req = self._parse_request(
             endpoint, context, http_headers=http_headers)
         proc_req = self._process_request(
