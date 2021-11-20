@@ -536,7 +536,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
             endpoint, context, http_headers=http_headers)
         if isinstance(parse_req, AuthorizationErrorResponse):
             logger.debug(f"{context.request}, {parse_req._dict}")
-            return self.send_response(parse_req._dict)
+            return self.send_response(JsonResponse(parse_req._dict))
 
         self._load_session(parse_req, endpoint, http_headers)
         proc_req = self._process_request(

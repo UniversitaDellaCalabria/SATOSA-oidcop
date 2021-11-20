@@ -503,13 +503,15 @@ class TestOidcOpFrontend(object):
     def test_handle_authn_request_faulty(self, context, frontend, authn_req):
         client = self.prepare_call(context, frontend, authn_req)
 
-        context.request = {'scope': 'email', 'response_type': 'code', 'client_id': CLIENT_1_ID}
+        context.request = {
+            'scope': 'email', 'response_type': 'code', 'client_id': CLIENT_1_ID
+        }
         res = frontend.handle_authn_request(context)
-        assert res['error_description'] == "Missing required attribute 'redirect_uri'"
+        assert json.loads(res.message)['error_description'] == "Missing required attribute 'redirect_uri'"
 
         context.request['redirect_uri'] = CLIENT_RED_URL
         res = frontend.handle_authn_request(context)
-        assert res['error_description'] == 'openid not in scope'
+        assert json.loads(res.message)['error_description'] == 'openid not in scope'
 
         context.request['scope'] = 'openid'
         res = frontend.handle_authn_request(context)
@@ -844,6 +846,14 @@ class TestOidcOpFrontend(object):
         token_resp = frontend.token_endpoint(context)
         _token_resp = json.loads(token_resp.message)
         assert _token_resp.get('error') == "invalid_grant"
+
+
+    def test_authorization_endpoint_refresh_without_consent(self, context, frontend):
+        authn_req = self.get_authn_req(**{"prompt":"none"})
+        client = self.prepare_call(context, frontend, authn_req)
+        assert client['client_id'] == authn_req['client_id']
+        res = frontend.authorization_endpoint(context)
+        assert res.message == '{"error": "invalid_request", "error_description": "consent in prompt"}'
 
 
     def teardown(self):
