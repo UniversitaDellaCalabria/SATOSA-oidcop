@@ -80,8 +80,8 @@ class OidcOpUtils(object):
             # validation is demanded later to oidcop parse_request
 
             ####
-            # WARNING: private_key_jwt can't be supported in SATOSA
-            # because the user MUST always pass though authorization endpoint
+            # WARNING: private_key_jwt can't be supported in SATOSA directly to token endpoint
+            # because the user MUST always pass through the authorization endpoint
             ####
             token = AuthnToken().from_jwt(
                 txt=context.request["client_assertion"],
@@ -179,13 +179,6 @@ class OidcOpUtils(object):
         """
         self._flush_endpoint_context_memory()
         self.load_session_from_db(parse_req, http_headers)
-
-        # that's actually useless
-        # if data and not self.dump_clients():
-        # for i in data['db'].keys():
-        # if i.count(';;') == 2:
-        # client_id = i.split(';;')[1]
-        # self._load_cdb({}, client_id = client_id)
 
     def _parse_request(
         self, endpoint, context: ExtendedContext, http_headers: dict = None
