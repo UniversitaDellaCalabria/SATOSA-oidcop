@@ -65,7 +65,7 @@ oidcop SSO and cookies were not have been implemented because SATOSA doesn't sup
 
 #### Client and Session Storage
 
-MongoDB is the storage, [here](https://github.com/italia/Satosa-Saml2Spid/tree/oidcop/mongo) some brief descriptions for a demo setup. The interface to SATOSA oidcop storage is `satosa.frontends.oidcop.storage.base.SatosaOidcStorage` and it have three methods:
+MongoDB is the storage, [here](https://github.com/italia/Satosa-Saml2Spid/tree/oidcop/mongo) some brief descriptions for a demo setup. The interface to SATOSA oidcop storage is `satosa.frontends.oidcop.storage.base.SatosaOidcStorage` and it has three methods:
 
 - **get_client_by_id**(self, client_id:str, expired:bool = True)
 - **store_session_to_db**(self, session_manager, **kwargs)
