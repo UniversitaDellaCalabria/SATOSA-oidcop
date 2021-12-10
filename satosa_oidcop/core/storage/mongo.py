@@ -1,3 +1,4 @@
+nsert
 import base64
 import copy
 import datetime
@@ -104,7 +105,7 @@ class Mongodb(SatosaOidcStorage):
             data["claims"] = grant["claims"]
             self.session_db.update_one(q, {"$set": data})
         else:
-            self.session_db.insert(data, check_keys=False)
+            self.session_db.insert_one(data, check_keys=False)
 
     def load_session_from_db(
         self, parse_req, http_headers: dict, session_manager: SessionManager, **kwargs
@@ -172,7 +173,7 @@ class Mongodb(SatosaOidcStorage):
             logger.warning(
                 f"OIDC Client {client_id} already present in the client db")
             return
-        self.client_db.insert(_client_data)
+        self.client_db.insert_one(_client_data)
 
     def get_client_by_basic_auth(self, request_authorization: str):
         cred = base64.b64decode(
