@@ -186,7 +186,7 @@ class Mongodb(SatosaOidcStorage):
             client_secret = cred[1]
 
             self._connect()
-            return = self.client_db.find_one({"client_id": client_id, "client_secret": client_secret})
+            return self.client_db.find_one({"client_id": client_id, "client_secret": client_secret})
 
     def get_registered_clients_id(self):
         self._connect()
