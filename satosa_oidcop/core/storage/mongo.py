@@ -1,4 +1,3 @@
-nsert
 import base64
 import copy
 import datetime
@@ -105,7 +104,7 @@ class Mongodb(SatosaOidcStorage):
             data["claims"] = grant["claims"]
             self.session_db.update_one(q, {"$set": data})
         else:
-            self.session_db.insert_one(data, check_keys=False)
+            self.session_db.insert_one(data)
 
     def load_session_from_db(
         self, parse_req, http_headers: dict, session_manager: SessionManager, **kwargs
