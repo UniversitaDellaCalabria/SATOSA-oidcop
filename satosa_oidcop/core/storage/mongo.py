@@ -3,6 +3,7 @@ import copy
 import datetime
 import logging
 import pymongo
+import zlib
 
 from .base import SatosaOidcStorage
 from oidcop.session.manager import SessionManager
@@ -76,7 +77,7 @@ class Mongodb(SatosaOidcStorage):
             "id_token": "",
             "refresh_token": "",
             "claims": claims or {},
-            "dump": compress_text_to_b64(_db),
+            "dump": self.compress_text_to_b64(_db),
             "key": ses_man_dump["key"],
             "salt": ses_man_dump["salt"],
         }
@@ -168,7 +169,7 @@ class Mongodb(SatosaOidcStorage):
         if res:
             data["key"] = res["key"]
             data["salt"] = res["salt"]
-            data["db"] = decompress_text(res["dump"])
+            data["db"] = self.decompress_text(res["dump"])
             session_manager.flush()
             session_manager.load(data)
         return data
