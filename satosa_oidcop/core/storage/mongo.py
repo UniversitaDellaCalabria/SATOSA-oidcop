@@ -1,9 +1,9 @@
 import base64
 import copy
 import datetime
+import json
 import logging
 import pymongo
-import zlib
 
 from .base import SatosaOidcStorage
 from oidcop.session.manager import SessionManager
@@ -43,21 +43,6 @@ class Mongodb(SatosaOidcStorage):
             self.client_db = self.db[self.storage_conf["collections"]["client"]]
             self.session_db = self.db[self.storage_conf["collections"]["session"]]
 
-    def compress_text_to_b64(text):
-        """Returns a compressed and b64 encoded string
-        """
-        if isinstance(text, str):
-            text = text.encode()
-        return base64.b64encode(zlib.compress(text))
-
-
-    def decompress_text(b64text):
-        """Returns a decompressed string
-        """
-        if isinstance(b64text, str):
-            b64text = b64text.encode()
-        return zlib.decompress(base64.b64decode(b64text))
-
     def get_client_by_id(self, client_id: str):
         self._connect()
         return self.client_db.find_one({"client_id": client_id}) or {}
@@ -77,7 +62,7 @@ class Mongodb(SatosaOidcStorage):
             "id_token": "",
             "refresh_token": "",
             "claims": claims or {},
-            "dump": self.compress_text_to_b64(_db),
+            "dump": json.dumps(_db),
             "key": ses_man_dump["key"],
             "salt": ses_man_dump["salt"],
         }
@@ -169,7 +154,7 @@ class Mongodb(SatosaOidcStorage):
         if res:
             data["key"] = res["key"]
             data["salt"] = res["salt"]
-            data["db"] = self.decompress_text(res["dump"])
+            data["db"] = json.loads(res["dump"])
             session_manager.flush()
             session_manager.load(data)
         return data
