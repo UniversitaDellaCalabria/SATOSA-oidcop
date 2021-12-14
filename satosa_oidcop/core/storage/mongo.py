@@ -1,6 +1,7 @@
 import base64
 import copy
 import datetime
+import json
 import logging
 import pymongo
 
@@ -44,14 +45,7 @@ class Mongodb(SatosaOidcStorage):
 
     def get_client_by_id(self, client_id: str):
         self._connect()
-        res = self.client_db.find({"client_id": client_id})
-
-        # improvement: unique index on client_id in client collection
-        if res.count():
-            # it returns the first one
-            return res.next()
-        else:
-            return {}
+        return self.client_db.find_one({"client_id": client_id}) or {}
 
     def store_session_to_db(self, session_manager: SessionManager, claims: dict):
         ses_man_dump = session_manager.dump()
@@ -68,7 +62,7 @@ class Mongodb(SatosaOidcStorage):
             "id_token": "",
             "refresh_token": "",
             "claims": claims or {},
-            "dump": _db,
+            "dump": json.dumps(_db),
             "key": ses_man_dump["key"],
             "salt": ses_man_dump["salt"],
         }
@@ -105,13 +99,13 @@ class Mongodb(SatosaOidcStorage):
 
         self._connect()
         q = {"grant_id": data["grant_id"]}
-        grant = self.session_db.find(q)
-        if grant.count():
+        grant = self.session_db.find_one(q)
+        if grant:
             # if update preserve the claims
-            data["claims"] = grant.next()["claims"]
+            data["claims"] = grant["claims"]
             self.session_db.update_one(q, {"$set": data})
         else:
-            self.session_db.insert(data, check_keys=False)
+            self.session_db.insert_one(data)
 
     def load_session_from_db(
         self, parse_req, http_headers: dict, session_manager: SessionManager, **kwargs
@@ -156,21 +150,20 @@ class Mongodb(SatosaOidcStorage):
             return data
 
         self._connect()
-        res = self.session_db.find(_q)
-        if res.count():
-            _data = res.next()
-            data["key"] = _data["key"]
-            data["salt"] = _data["salt"]
-            data["db"] = _data["dump"]
+        res = self.session_db.find_one(_q)
+        if res:
+            data["key"] = res["key"]
+            data["salt"] = res["salt"]
+            data["db"] = json.loads(res["dump"])
             session_manager.flush()
             session_manager.load(data)
         return data
 
     def get_claims_from_sid(self, sid: str):
         self._connect()
-        res = self.session_db.find({"sid": sid})
-        if res.count():
-            return res.next()["claims"]
+        res = self.session_db.find_one({"sid": sid})
+        if res:
+            return res["claims"]
 
     def insert_client(self, client_data: dict):
         _client_data = copy.deepcopy(client_data)
@@ -180,7 +173,7 @@ class Mongodb(SatosaOidcStorage):
             logger.warning(
                 f"OIDC Client {client_id} already present in the client db")
             return
-        self.client_db.insert(_client_data)
+        self.client_db.insert_one(_client_data)
 
     def get_client_by_basic_auth(self, request_authorization: str):
         cred = base64.b64decode(
@@ -194,11 +187,7 @@ class Mongodb(SatosaOidcStorage):
             client_secret = cred[1]
 
             self._connect()
-            res = self.client_db.find(
-                {"client_id": client_id, "client_secret": client_secret}
-            )
-            if res.count():
-                return res.next()
+            return self.client_db.find_one({"client_id": client_id, "client_secret": client_secret})
 
     def get_registered_clients_id(self):
         self._connect()
