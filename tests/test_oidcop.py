@@ -274,7 +274,7 @@ OIDCOP_CONF = {
         "verify": False
       },
       "issuer": "https://localhost:10000",
-      "keys": {
+      "key_conf": {
         "key_defs": [
           {
             "type": "RSA",
