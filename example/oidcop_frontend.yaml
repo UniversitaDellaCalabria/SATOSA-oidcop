@@ -236,7 +236,7 @@ config:
               #httponly: true
               #samesite: None
               #secure: true
-            #key_conf:
+            #keys:
               #key_defs:
               #- kid: enc
                 #type: OCT
