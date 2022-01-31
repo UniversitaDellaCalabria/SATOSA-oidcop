@@ -34,7 +34,7 @@ CLIENT_1_RAT = 'z3PCMmC1HZ1QmXeXGOQMJpWQNQynM4xY'
 CLIENT_RED_URL = 'https://127.0.0.1:8090/authz_cb/satosa'
 CLIENT_1_SESLOGOUT = 'https://127.0.0.1:8090/session_logout/satosa'
 
-# unused because actually we can't have private_key_jwt/RFC7523 in satosa
+# unused
 CLIENT_JWK_DICT = {'keys': [{'kty': 'RSA',
    'use': 'sig',
    'kid': 'OWIzN25HNmY0d0VTNWtMeEstTFU3endZbm9ucjhwTVhfLUdwajU1QS1NMA',
@@ -51,9 +51,8 @@ CLIENT_JWK_DICT = {'keys': [{'kty': 'RSA',
    'y': 'X1l4LMpq8dI4idQXUPScuarbyz_a0gq0DjHZhdWWiAw',
    'd': 'd2SBLs_LZIxt2U_sdcjTCLLoMYWli_HYkZ0YIDe2SvE'}]
 }
-# unused because actually we can't have private_key_jwt/RFC7523 in satosa
+# unused
 CLIENT_RSA_KEY = key_from_jwk_dict(CLIENT_JWK_DICT['keys'][0])
-
 
 CLIENT_CONF = {
         'client_id': CLIENT_1_ID,

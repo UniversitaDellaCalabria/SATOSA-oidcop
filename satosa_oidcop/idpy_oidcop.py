@@ -485,7 +485,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         # Why not
         # self.config = self.app.server.conf
         self.config = self.app.srv_config
-        jwks_public_path = self.config["keys"]["public_path"]
+        jwks_public_path = self.config["key_conf"]["public_path"]
         with open(jwks_public_path) as f:
             self.jwks_public = f.read()
 
@@ -505,7 +505,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         ]
 
         # add jwks.json webpath
-        uri_path = self.config["keys"]["uri_path"]
+        uri_path = self.config["key_conf"]["uri_path"]
         url_map.append((uri_path, self.jwks_endpoint))
 
         logger.debug(f"Loaded OIDC Provider endpoints: {url_map}")

@@ -35,7 +35,7 @@ setup(
     },
     install_requires=[
         "satosa>=8.0.0",
-        "pymongo >= 3.11",
-        "oidcop == 2.3.0"
+        "pymongo>=3.11,<=4.0.1",
+        "oidcop>=2.3.3,<=2.3.4"
     ],
 )
