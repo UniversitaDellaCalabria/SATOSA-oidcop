@@ -26,14 +26,13 @@ description:
   en:
     documentation: 'https://github.com/UniversitaDellaCalabria/SATOSA-oidcop/'
     features:
-      Supported endpoints:
-        - provider discovery
-        - authorization
-        - token
-        - userinfo
-        - registration
-        - registration_read endpoint
-        - introspection endpoint
+      - provider discovery
+      - authorization
+      - token
+      - userinfo
+      - registration
+      - registration_read endpoint
+      - introspection endpoint
     genericName: web application
     longDescription: >
       SATOSA Frontend based on identity python oidcop.
