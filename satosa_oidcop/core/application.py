@@ -2,7 +2,7 @@ import logging
 import os
 
 from idpyoidc.server.configure import OPConfiguration
-from idpyoidc.server.server import Server
+from idpyoidc.server import Server
 from idpyoidc.server.util import importer
 
 
