@@ -8,11 +8,11 @@ from cryptojwt.key_jar import KeyJar
 from cryptojwt.jwk.jwk import key_from_jwk_dict
 from cryptojwt.tools import keyconv
 
-from oidcmsg.oidc import AccessTokenRequest
-from oidcmsg.oidc import AuthnToken
-from oidcmsg.oidc import AuthorizationRequest
-from oidcmsg.oidc import AuthorizationResponse
-from oidcmsg.oidc import RegistrationRequest
+from idpyoidc.message.oidc import AccessTokenRequest
+from idpyoidc.message.oidc import AuthnToken
+from idpyoidc.message.oidc import AuthorizationRequest
+from idpyoidc.message.oidc import AuthorizationResponse
+from idpyoidc.message.oidc import RegistrationRequest
 from idpyoidc.server.exception import UnAuthorizedClient
 
 from saml2.authn_context import PASSWORD
