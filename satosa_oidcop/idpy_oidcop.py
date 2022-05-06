@@ -7,18 +7,18 @@ import os
 from urllib.parse import urlencode
 
 from cryptojwt.key_jar import KeyJar
-from oidcmsg.oauth2 import ResponseMessage
-from oidcmsg.oidc import AccessTokenRequest
-from oidcmsg.oidc import AuthorizationErrorResponse
-from oidcmsg.oidc import AuthnToken
-from oidcmsg.oidc import TokenErrorResponse
-from oidcmsg.oidc import AuthorizationRequest
-from oidcop.authn_event import create_authn_event
-from oidcop.exception import InvalidClient
-from oidcop.exception import UnAuthorizedClient
-from oidcop.exception import UnknownClient
-from oidcop.token.exception import UnknownToken
-from oidcop.oidc.registration import random_client_id
+from idpyoidc.message.oauth2 import ResponseMessage
+from idpyoidc.message.oidc import AccessTokenRequest
+from idpyoidc.message.oidc import AuthorizationErrorResponse
+from idpyoidc.message.oidc import AuthnToken
+from idpyoidc.message.oidc import TokenErrorResponse
+from idpyoidc.message.oidc import AuthorizationRequest
+from idpyoidc.server.authn_event import create_authn_event
+from idpyoidc.server.exception import InvalidClient
+from idpyoidc.server.exception import UnAuthorizedClient
+from idpyoidc.server.exception import UnknownClient
+from idpyoidc.server.token.exception import UnknownToken
+from idpyoidc.server.oidc.registration import random_client_id
 
 import satosa.logging_util as lu
 from satosa.context import Context
@@ -366,7 +366,7 @@ class OidcOpEndpoints(OidcOpUtils):
         claims = {}
         sman = ec.session_manager
         for k, v in sman.dump()["db"].items():
-            if v[0] == "oidcop.session.grant.Grant":
+            if v[0] == "idpyoidc.server.session.grant.Grant":
                 sid = k
                 claims = self.app.storage.get_claims_from_sid(sid)
                 break
@@ -644,7 +644,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
 
         try:
             # _args is a dict that contains:
-            #  - oidcmsg.oidc.AuthorizationResponse
+            #  - idpyoidc.message.oidc.AuthorizationResponse
             #  - session_id
             #  - cookie (only need for logout -> not yet supported by Satosa)
             _args = endpoint.authz_part2(
