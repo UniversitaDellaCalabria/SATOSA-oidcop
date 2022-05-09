@@ -8,12 +8,12 @@ from cryptojwt.key_jar import KeyJar
 from cryptojwt.jwk.jwk import key_from_jwk_dict
 from cryptojwt.tools import keyconv
 
-from oidcmsg.oidc import AccessTokenRequest
-from oidcmsg.oidc import AuthnToken
-from oidcmsg.oidc import AuthorizationRequest
-from oidcmsg.oidc import AuthorizationResponse
-from oidcmsg.oidc import RegistrationRequest
-from oidcop.exception import UnAuthorizedClient
+from idpyoidc.message.oidc import AccessTokenRequest
+from idpyoidc.message.oidc import AuthnToken
+from idpyoidc.message.oidc import AuthorizationRequest
+from idpyoidc.message.oidc import AuthorizationResponse
+from idpyoidc.message.oidc import RegistrationRequest
+from idpyoidc.server.exception import UnAuthorizedClient
 
 from saml2.authn_context import PASSWORD
 from satosa.attribute_mapping import AttributeMapper
@@ -105,7 +105,7 @@ OIDCOP_CONF = {
     "server_info": {
       "add_on": {
         "pkce": {
-          "function": "oidcop.oidc.add_on.pkce.add_pkce_support",
+          "function": "idpyoidc.server.oidc.add_on.pkce.add_pkce_support",
           "kwargs": {
             "code_challenge_method": "S256 S384 S512",
             "essential": False
@@ -119,7 +119,7 @@ OIDCOP_CONF = {
         }
       },
       "authz": {
-        "class": "oidcop.authz.AuthzHandling",
+        "class": "idpyoidc.server.authz.AuthzHandling",
         "kwargs": {
           "grant_config": {
             "expires_in": 43200,
@@ -158,14 +158,14 @@ OIDCOP_CONF = {
       },
       "endpoint": {
         "provider_info": {
-          "class": "oidcop.oidc.provider_config.ProviderConfiguration",
+          "class": "idpyoidc.server.oidc.provider_config.ProviderConfiguration",
           "kwargs": {
             "client_authn_method": None
           },
           "path": ".well-known/openid-configuration"
         },
         "authorization": {
-          "class": "oidcop.oidc.authorization.Authorization",
+          "class": "idpyoidc.server.oidc.authorization.Authorization",
           "kwargs": {
             "claims_parameter_supported": True,
             "client_authn_method": None,
@@ -193,7 +193,7 @@ OIDCOP_CONF = {
           "path": "OIDC/authorization"
         },
         "token": {
-          "class": "oidcop.oidc.token.Token",
+          "class": "idpyoidc.server.oidc.token.Token",
           "kwargs": {
             "client_authn_method": [
               "client_secret_post",
@@ -205,7 +205,7 @@ OIDCOP_CONF = {
           "path": "OIDC/token"
         },
         "userinfo": {
-          "class": "oidcop.oidc.userinfo.UserInfo",
+          "class": "idpyoidc.server.oidc.userinfo.UserInfo",
           "kwargs": {
             "claim_types_supported": [
               "normal",
@@ -234,7 +234,7 @@ OIDCOP_CONF = {
           "path": "OIDC/userinfo"
         },
         "introspection": {
-          "class": "oidcop.oauth2.introspection.Introspection",
+          "class": "idpyoidc.server.oauth2.introspection.Introspection",
           "kwargs": {
             "client_authn_method": [
               "client_secret_post",
@@ -249,11 +249,11 @@ OIDCOP_CONF = {
           "path": "OIDC/introspection"
         },
         "registration": {
-            "class": "oidcop.oidc.registration.Registration",
+            "class": "idpyoidc.server.oidc.registration.Registration",
             "kwargs": {
               "client_authn_method": None,
               "client_id_generator": {
-                "class": "oidcop.oidc.registration.random_client_id",
+                "class": "idpyoidc.server.oidc.registration.random_client_id",
                 "kwargs": {}
                },
               "client_secret_expiration_time": 432000
@@ -261,7 +261,7 @@ OIDCOP_CONF = {
             "path": "OIDC/registration"
         },
         "registration_read": {
-            "class": "oidcop.oidc.read_registration.RegistrationRead",
+            "class": "idpyoidc.server.oidc.read_registration.RegistrationRead",
             "kwargs": {
               "client_authn_method": [
                "bearer_header"
@@ -295,7 +295,7 @@ OIDCOP_CONF = {
         "uri_path": "OIDC/jwks.json"
       },
       "login_hint2acrs": {
-        "class": "oidcop.login_hint.LoginHint2Acrs",
+        "class": "idpyoidc.server.login_hint.LoginHint2Acrs",
         "kwargs": {
           "scheme_map": {
             "email": [
@@ -309,13 +309,13 @@ OIDCOP_CONF = {
         "salt": "salt involved in session sub hash ",
         "sub_func": {
           "pairwise": {
-            "class": "oidcop.session.manager.PairWiseID",
+            "class": "idpyoidc.server.session.manager.PairWiseID",
             "kwargs": {
               "salt": "CHANGE_ME_OR_LET_IT_BE_RANDOMIC"
             }
           },
           "public": {
-            "class": "oidcop.session.manager.PublicID",
+            "class": "idpyoidc.server.session.manager.PublicID",
             "kwargs": {
               "salt": "CHANGE_ME_OR_LET_IT_BE_RANDOMIC"
             }
@@ -330,7 +330,7 @@ OIDCOP_CONF = {
           }
         },
         "id_token": {
-          "class": "oidcop.token.id_token.IDToken",
+          "class": "idpyoidc.server.token.id_token.IDToken",
           "kwargs": {
             "id_token_encryption_alg_values_supported": [
               "RSA-OAEP",
@@ -367,7 +367,7 @@ OIDCOP_CONF = {
           }
         },
         "token": {
-          "class": "oidcop.token.jwt_token.JWTToken",
+          "class": "idpyoidc.server.token.jwt_token.JWTToken",
           "kwargs": {
             "lifetime": 3600
           }
