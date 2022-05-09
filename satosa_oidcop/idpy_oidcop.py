@@ -189,8 +189,7 @@ class OidcOpUtils(object):
         """
         http_headers = http_headers or self._get_http_headers(context)
         try:
-            parse_req = endpoint.parse_request(
-                context.request, http_info=http_headers)
+            parse_req = endpoint.parse_request(context.request, http_info=http_headers)
         except (InvalidClient, UnknownClient, UnAuthorizedClient) as err:
             logger.error(err)
             response = JsonResponse(

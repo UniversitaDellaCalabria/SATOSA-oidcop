@@ -63,8 +63,8 @@ class Mongodb(SatosaOidcStorage):
             "refresh_token": "",
             "claims": claims or {},
             "dump": json.dumps(_db),
-            "key": ses_man_dump["key"],
-            "salt": ses_man_dump["salt"],
+            "key": ses_man_dump['crypt_config']['kwargs']["password"],
+            "salt": ses_man_dump['crypt_config']['kwargs']["salt"]
         }
 
         for k, v in _db.items():
