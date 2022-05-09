@@ -226,9 +226,7 @@ OIDCOP_CONF = {
               "RS256",
               "RS512",
               "ES256",
-              "ES512",
-              "PS256",
-              "PS512"
+              "ES512"
             ]
           },
           "path": "OIDC/userinfo"
@@ -354,9 +352,7 @@ OIDCOP_CONF = {
               "RS256",
               "RS512",
               "ES256",
-              "ES512",
-              "PS256",
-              "PS512"
+              "ES512"
             ]
           }
         },
