@@ -167,7 +167,7 @@ config:
         httpc_params:
           verify: false
         issuer: *base_url
-        keys:
+        key_conf:
           key_defs:
           - type: RSA
             use:
