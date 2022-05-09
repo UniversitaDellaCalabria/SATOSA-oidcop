@@ -6,22 +6,22 @@ import logging
 import pymongo
 
 from .base import SatosaOidcStorage
-from oidcop.session.manager import SessionManager
+from idpyoidc.server.session.manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
 
 class Mongodb(SatosaOidcStorage):
     session_attr_map = {
-        "oidcop.session.info.UserSessionInfo": "sub",
-        "oidcop.session.info.ClientSessionInfo": "client_id",
-        "oidcop.session.grant.Grant": "grant_id",
+        "idpyoidc.server.session.info.UserSessionInfo": "sub",
+        "idpyoidc.server.session.info.ClientSessionInfo": "client_id",
+        "idpyoidc.server.session.grant.Grant": "grant_id",
     }
     token_attr_map = {
-        "oidcop.session.token.AuthorizationCode": "authorization_code",
-        "oidcop.session.token.AccessToken": "access_token",
-        "oidcop.session.token.RefreshToken": "refresh_token",
-        "oidcop.session.token.IDToken": "id_token",
+        "idpyoidc.server.session.token.AuthorizationCode": "authorization_code",
+        "idpyoidc.server.session.token.AccessToken": "access_token",
+        "idpyoidc.server.session.token.RefreshToken": "refresh_token",
+        "idpyoidc.server.session.token.IDToken": "id_token",
     }
 
     def __init__(self, storage_conf: dict, url: str, connection_params: dict = None):
@@ -69,7 +69,7 @@ class Mongodb(SatosaOidcStorage):
 
         for k, v in _db.items():
             # TODO: ask to roland to have something better than this
-            if len(k) > 128 and ";;" not in k and v[0] == "oidcop.session.grant.Grant":
+            if len(k) > 128 and ";;" not in k and v[0] == "idpyoidc.server.session.grant.Grant":
                 data["sid_encrypted"] = k
                 continue
 
