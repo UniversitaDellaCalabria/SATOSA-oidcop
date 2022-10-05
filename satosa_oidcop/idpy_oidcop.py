@@ -706,3 +706,21 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         # store oidc session with user claims
         self.store_session_to_db(claims=combined_claims)
         return self.send_response(response)
+
+    def handle_backend_error(self, exception):
+        """
+        See super class satosa.frontends.base.FrontendModule
+        :type exception: satosa.exception.SATOSAError
+        :rtype: oic.utils.http_util.Response
+        """
+        auth_req = AuthorizationRequest().from_urlencoded(urlencode(exception.state[self.name]["oidc_request"]))
+        msg = exception.message
+        error_resp = AuthorizationErrorResponse(
+            error="access_denied",
+            error_description=msg,
+            # If the client sent us a state parameter, we should reflect it back according to the spec
+            **({'state': auth_req['state']} if 'state' in auth_req else {})
+        )
+        logline = lu.LOG_FMT.format(id=lu.get_session_id(exception.state), message=msg)
+        logger.info(logline)
+        return SeeOther(error_resp.request(auth_req["redirect_uri"], auth_req['response_type'] != ['code']))
