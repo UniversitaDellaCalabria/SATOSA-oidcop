@@ -122,8 +122,6 @@ config:
               - RS512
               - ES256
               - ES512
-              - PS256
-              - PS512
             path: OIDC/userinfo
           introspection:
             class: idpyoidc.server.oauth2.introspection.Introspection
@@ -167,7 +165,7 @@ config:
         httpc_params:
           verify: false
         issuer: *base_url
-        keys:
+        key_conf:
           key_defs:
           - type: RSA
             use:
