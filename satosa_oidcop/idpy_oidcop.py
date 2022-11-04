@@ -21,7 +21,7 @@ from oidcop.token.exception import UnknownToken
 from oidcop.oidc.registration import random_client_id
 
 import satosa.logging_util as lu
-from satosa.context import Context
+from satosa.context import Context, add_prompt_to_context
 from satosa.internal import InternalData
 from satosa.frontends.base import FrontendModule
 from satosa.response import SeeOther
@@ -208,6 +208,11 @@ class OidcOpUtils(object):
         """
         if isinstance(parse_req, JsonResponse):
             return self.send_response(parse_req)
+
+        # do not handle prompt param by oidc-op, handle it here instead
+        prompt_arg = parse_req.pop("prompt", None)
+        if prompt_arg:
+            add_prompt_to_context(context, " ".join(prompt_arg) if isinstance(prompt_arg, list) else prompt_arg)
 
         try:
             proc_req = endpoint.process_request(
