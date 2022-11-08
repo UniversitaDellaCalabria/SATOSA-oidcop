@@ -5,6 +5,7 @@ import base64
 import logging
 import os
 from urllib.parse import urlencode
+from datetime import datetime
 
 from cryptojwt.key_jar import KeyJar
 from oidcmsg.oauth2 import ResponseMessage
@@ -213,6 +214,13 @@ class OidcOpUtils(object):
         prompt_arg = parse_req.pop("prompt", None)
         if prompt_arg:
             add_prompt_to_context(context, " ".join(prompt_arg) if isinstance(prompt_arg, list) else prompt_arg)
+
+        # save ACRs
+        acr_values = parse_req.pop("acr_values", None)
+        if acr_values:
+            acr_values = acr_values if isinstance(acr_values, list) else acr_values.split(" ")
+            context.decorate(Context.KEY_AUTHN_CONTEXT_CLASS_REF, acr_values)
+            context.state[Context.KEY_AUTHN_CONTEXT_CLASS_REF] = acr_values
 
         try:
             proc_req = endpoint.process_request(
@@ -653,9 +661,10 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         authn_event = create_authn_event(
             uid=sub,
             salt=base64.b64encode(os.urandom(self.app.salt_size)).decode(),
-            # TODO
-            # authn_info=auth_args['authn_class_ref'],
-            # authn_time=auth_args['iat']
+            authn_info=internal_resp.auth_info.auth_class_ref,
+            authn_time=datetime.fromisoformat(
+                internal_resp.auth_info.timestamp
+            ).timestamp(),
         )
 
         _ec = endpoint.server_get("endpoint_context")
