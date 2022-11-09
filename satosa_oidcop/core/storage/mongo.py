@@ -119,10 +119,7 @@ class Mongodb(SatosaOidcStorage):
         """
         data = {}
         _q = {}
-        http_authz = http_headers.get("headers", {}).get("authorization", {})
-        if "Basic " in http_authz:
-            # we want only bearer and dpop here!
-            http_authz = None
+        http_authz = http_headers.get("headers", {}).get("authorization", "")
 
         if parse_req.get("grant_type") == "authorization_code":
             # here for auth code flow and token endpoint only
@@ -130,8 +127,9 @@ class Mongodb(SatosaOidcStorage):
                 "authorization_code": parse_req["code"],
                 "client_id": parse_req.get("client_id"),
             }
-        elif http_authz:
+        elif http_authz and not "Basic " in http_authz:
             # here for userinfo endpoint
+            # exclude Basic auth: we want only bearer and dpop here!
             _q = {
                 "access_token": http_authz.replace("Bearer ", ""),
             }
