@@ -545,7 +545,8 @@ class TestOidcOpFrontend(object):
         context.request = {
             'grant_type': 'authorization_code',
             'redirect_uri': CLIENT_RED_URL,
-            'client_id': CLIENT_AUTHN_REQUEST['client_id'],
+            # SKIP passing client_id as it is available in Basic auth passed in the request
+            # 'client_id': CLIENT_AUTHN_REQUEST['client_id'],
             'state': CLIENT_AUTHN_REQUEST['state'],
             'code': resp["code"],
             # TODO
