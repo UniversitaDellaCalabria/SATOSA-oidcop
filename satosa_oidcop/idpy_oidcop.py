@@ -634,11 +634,14 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         _token_usage_rules = _ec.authn_broker.get_method_by_id("user")
 
         session_manager = _ec.session_manager
+        client = self.app.storage.get_client_by_id(client_id)
+        client_subject_type = client.get("subject_type", "public")
         _session_id = session_manager.create_session(
             authn_event=authn_event,
             auth_req=parse_req,
             user_id=sub,
             client_id=client_id,
+            sub_type=client_subject_type,
             token_usage_rules=_token_usage_rules,
         )
 
