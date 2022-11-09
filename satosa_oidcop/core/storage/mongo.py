@@ -173,7 +173,7 @@ class Mongodb(SatosaOidcStorage):
             return
         self.client_db.insert_one(_client_data)
 
-    def get_client_id_by_basic_auth(self, request_authorization: str):
+    def get_client_creds_from_basic_auth(self, request_authorization: str):
         cred = base64.b64decode(
             request_authorization.replace("Basic ", "").encode())
         if not cred:
@@ -181,16 +181,18 @@ class Mongodb(SatosaOidcStorage):
 
         cred = cred.decode().split(":")
         if len(cred) == 2:
+            return cred
+
+    def get_client_id_by_basic_auth(self, request_authorization: str):
+        cred = self.get_client_creds_from_basic_auth(request_authorization)
+
+        if len(cred) == 2:
             client_id = cred[0]
             return client_id
 
     def get_client_by_basic_auth(self, request_authorization: str):
-        cred = base64.b64decode(
-            request_authorization.replace("Basic ", "").encode())
-        if not cred:
-            return
+        cred = self.get_client_creds_from_basic_auth(request_authorization)
 
-        cred = cred.decode().split(":")
         if len(cred) == 2:
             client_id = cred[0]
             client_secret = cred[1]
