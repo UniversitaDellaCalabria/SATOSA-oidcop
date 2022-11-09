@@ -127,7 +127,7 @@ class Mongodb(SatosaOidcStorage):
                 "authorization_code": parse_req["code"],
                 "client_id": parse_req.get("client_id") or self.get_client_id_by_basic_auth(http_authz),
             }
-        elif http_authz and not "Basic " in http_authz:
+        elif http_authz and "Basic " not in http_authz:
             # here for userinfo endpoint
             # exclude Basic auth: we want only bearer and dpop here!
             _q = {
