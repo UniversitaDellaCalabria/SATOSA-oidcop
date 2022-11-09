@@ -125,7 +125,7 @@ class Mongodb(SatosaOidcStorage):
             # here for auth code flow and token endpoint only
             _q = {
                 "authorization_code": parse_req["code"],
-                "client_id": parse_req.get("client_id"),
+                "client_id": parse_req.get("client_id") or self.get_client_id_by_basic_auth(http_authz),
             }
         elif http_authz and not "Basic " in http_authz:
             # here for userinfo endpoint
