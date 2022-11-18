@@ -119,19 +119,17 @@ class Mongodb(SatosaOidcStorage):
         """
         data = {}
         _q = {}
-        http_authz = http_headers.get("headers", {}).get("authorization", {})
-        if "Basic " in http_authz:
-            # we want only bearer and dpop here!
-            http_authz = None
+        http_authz = http_headers.get("headers", {}).get("authorization", "")
 
         if parse_req.get("grant_type") == "authorization_code":
             # here for auth code flow and token endpoint only
             _q = {
                 "authorization_code": parse_req["code"],
-                "client_id": parse_req.get("client_id"),
+                "client_id": parse_req.get("client_id") or self.get_client_id_by_basic_auth(http_authz),
             }
-        elif http_authz:
+        elif http_authz and "Basic " not in http_authz:
             # here for userinfo endpoint
+            # exclude Basic auth: we want only bearer and dpop here!
             _q = {
                 "access_token": http_authz.replace("Bearer ", ""),
             }
@@ -175,13 +173,26 @@ class Mongodb(SatosaOidcStorage):
             return
         self.client_db.insert_one(_client_data)
 
-    def get_client_by_basic_auth(self, request_authorization: str):
+    def get_client_creds_from_basic_auth(self, request_authorization: str):
         cred = base64.b64decode(
             request_authorization.replace("Basic ", "").encode())
         if not cred:
             return
 
         cred = cred.decode().split(":")
+        if len(cred) == 2:
+            return cred
+
+    def get_client_id_by_basic_auth(self, request_authorization: str):
+        cred = self.get_client_creds_from_basic_auth(request_authorization)
+
+        if len(cred) == 2:
+            client_id = cred[0]
+            return client_id
+
+    def get_client_by_basic_auth(self, request_authorization: str):
+        cred = self.get_client_creds_from_basic_auth(request_authorization)
+
         if len(cred) == 2:
             client_id = cred[0]
             client_secret = cred[1]
