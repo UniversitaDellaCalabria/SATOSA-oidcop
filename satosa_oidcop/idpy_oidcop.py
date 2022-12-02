@@ -338,8 +338,14 @@ class OidcOpEndpoints(OidcOpUtils):
                 {"error": "invalid_token", "error_description": "Unknown Token"}, status="403")
             )
 
+        ec = endpoint.server_get("endpoint_context")
+        self._load_claims(ec)
         proc_req = self._process_request(
             endpoint, context, parse_req, http_headers)
+        # flush as soon as possible, otherwise in case of an exception it would be
+        # stored in the object ... until a next .load would happen ...
+        ec.userinfo.flush()
+        
         if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
         elif isinstance(proc_req, TokenErrorResponse):
@@ -362,22 +368,7 @@ class OidcOpEndpoints(OidcOpUtils):
             endpoint, context, http_headers=http_headers)
 
         ec = endpoint.server_get("endpoint_context")
-        # Load claims
-        claims = {}
-        sman = ec.session_manager
-        for k, v in sman.dump()["db"].items():
-            if v[0] == "oidcop.session.grant.Grant":
-                sid = k
-                claims = self.app.storage.get_claims_from_sid(sid)
-                break
-        else:  # pragma: no cover
-            logger.warning(
-                "UserInfo endoint: Can't find any suitable sid/claims from stored session"
-            )
-        # That's a patchy runtime definition of userinfo db configuration
-        ec.userinfo.load(claims)
-        # end load claims
-
+        self._load_claims(ec)
         proc_req = self._process_request(
             endpoint, context, parse_req, http_headers)
         # flush as soon as possible, otherwise in case of an exception it would be
@@ -396,6 +387,22 @@ class OidcOpEndpoints(OidcOpUtils):
 
         self.store_session_to_db()
         return self.send_response(response)
+
+    def _load_claims(self, endpoint_context):
+        claims = {}
+        sman = endpoint_context.session_manager
+        for k, v in sman.dump()["db"].items():
+            if v[0] == "oidcop.session.grant.Grant":
+                sid = k
+                claims = self.app.storage.get_claims_from_sid(sid)
+                break
+            else:  # pragma: no cover
+                logger.warning(
+                    "Can't find any suitable sid/claims from stored session"
+                )
+
+        # That's a patchy runtime definition of userinfo db configuration
+        endpoint_context.userinfo.load(claims)
 
     def registration_read_endpoint(self, context: Context):
         """
