@@ -102,7 +102,13 @@ Each time a request is handled by an endpoint the oidcop session manager loads t
 
 #### Tests
 
-Before you run the tests mind that you've to start a local mongod instance.
+Before you run the tests mind that you've to start a local mongod instance, e.g. with:
+
+```
+docker run --rm -e ALLOW_EMPTY_PASSWORD=yes -e MONGODB_ENABLE_JOURNAL=false -p 27017:27017 --name mongodb bitnami/mongodb:latest
+```
+
+Then run the tests:
 
 ````
 pip install pytest
