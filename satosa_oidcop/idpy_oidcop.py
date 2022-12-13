@@ -662,9 +662,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
             uid=sub,
             salt=base64.b64encode(os.urandom(self.app.salt_size)).decode(),
             authn_info=internal_resp.auth_info.auth_class_ref,
-            authn_time=datetime.fromisoformat(
-                internal_resp.auth_info.timestamp
-            ).timestamp(),
+            # TODO: authn_time=datetime.fromisoformat(internal_resp.auth_info.timestamp).timestamp(),
         )
 
         _ec = endpoint.server_get("endpoint_context")
