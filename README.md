@@ -73,6 +73,11 @@ MongoDB is the storage, [here](https://github.com/italia/Satosa-Saml2Spid/tree/o
 
 `satosa.frontends.oidcop.storage.mongo.Mongodb` overloads them to have I/O operations on mongodb.
 
+##### Subject type #####
+
+The client configuration can also include the `subject_type` key, with permitted values being `public` and `pairwise`.  If absent, the default is to choose `public`.  This has been driven by backwards compatibility with existing behaviour: oidcop (`session_manager.create_session`) defaults to `public`.
+
+For user privacy, we strongly recommend selecting `pairwise` for new deployments, unless `public` is absolutely needed (for linking users across related but distinct services).
 
 ## Demo
 
