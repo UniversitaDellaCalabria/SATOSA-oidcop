@@ -386,9 +386,12 @@ class OidcOpEndpoints(OidcOpUtils):
 
         if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
-        elif 'error' in proc_req:
+        elif 'error' in proc_req or 'error' in proc_req.get('response_args', {}):
             return self.send_response(
-                JsonResponse(proc_req.to_dict(), status="403")
+                JsonResponse(
+                    proc_req['response_args'] if 'response_args' in proc_req else proc_req.to_dict(),
+                    status="403"
+                )
             )
 
         # better return jwt or jwe here!
