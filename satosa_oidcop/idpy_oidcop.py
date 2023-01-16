@@ -4,6 +4,7 @@ The OpenID Connect frontend module for the satosa proxy
 import base64
 import logging
 import os
+import json
 from urllib.parse import urlencode
 
 from cryptojwt.key_jar import KeyJar
@@ -350,10 +351,17 @@ class OidcOpEndpoints(OidcOpUtils):
             return self.send_response(proc_req)
         elif isinstance(proc_req, TokenErrorResponse):
             return self.send_response(JsonResponse(proc_req.to_dict(), status="403"))
-
+        
+        # TODO: remove when migrate to idpy-oidc
+        # PATCH https://github.com/UniversitaDellaCalabria/SATOSA-oidcop/issues/29
+        if isinstance (proc_req["response_args"].get('scope', str), list):
+            proc_req["response_args"]['scope'] =  ' '.join(proc_req["response_args"]['scope'])
+        # end PATCH
+                
         # better return jwt or jwe here!
         self.store_session_to_db()
         response = JsonResponse(proc_req["response_args"])
+
         return self.send_response(response)
 
     def userinfo_endpoint(self, context: ExtendedContext):
