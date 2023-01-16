@@ -4,7 +4,6 @@ The OpenID Connect frontend module for the satosa proxy
 import base64
 import logging
 import os
-import json
 from urllib.parse import urlencode
 
 from cryptojwt.key_jar import KeyJar
