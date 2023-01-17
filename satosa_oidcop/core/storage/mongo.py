@@ -125,7 +125,8 @@ class Mongodb(SatosaOidcStorage):
             # here for auth code flow and token endpoint only
             _q = {
                 "authorization_code": parse_req["code"],
-                "client_id": parse_req.get("client_id") or self.get_client_id_by_basic_auth(http_authz),
+                "client_id": parse_req.get("client_id")
+                or self.get_client_id_by_basic_auth(http_authz),
             }
         elif http_authz and "Basic " not in http_authz:
             # here for userinfo endpoint
@@ -198,7 +199,9 @@ class Mongodb(SatosaOidcStorage):
             client_secret = cred[1]
 
             self._connect()
-            return self.client_db.find_one({"client_id": client_id, "client_secret": client_secret})
+            return self.client_db.find_one(
+                {"client_id": client_id, "client_secret": client_secret}
+            )
 
     def get_registered_clients_id(self):
         self._connect()
