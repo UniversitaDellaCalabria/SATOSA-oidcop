@@ -56,16 +56,23 @@ class MongoTemporaryInstance(object):
         self._port = 27017
         
         try:
-            self._process = subprocess.Popen(['mongod', '--bind_ip', 'localhost',
-                                              '--port', str(self._port),
-                                              '--dbpath', self._tmpdir,
-                                              '--nojournal',
-                                              '--noauth',
-                                              '--syncdelay', '0'],
-                                             stdout=open('/tmp/mongo-temp.log', 'wb'),
-                                             stderr=subprocess.STDOUT)
+            self._process = subprocess.Popen(
+                [
+                    'mongod', '--bind_ip', 'localhost',
+                    '--port', str(self._port),
+                    '--dbpath', self._tmpdir,
+                    '--nojournal',
+                    '--noauth',
+                    '--syncdelay', '0'
+                ],
+                stdout=open('/tmp/mongo-temp.log', 'wb'),
+                stderr=subprocess.STDOUT
+            )
         except FileNotFoundError as e:
-            logger.warning("Mongodb executable not found, trying to use docker compose mongodb")           
+            logger.warning(
+                "Mongodb local executable not found, trying to use docker "
+                f"compose mongodb: {e}"
+            )
             self._process = DummyInterface()
 
         # XXX: wait for the instance to be ready
