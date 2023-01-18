@@ -564,6 +564,26 @@ class TestOidcOpFrontend(object):
         # cleanup
         self.clean_inmemory(frontend)
 
+        # Test Token endpoint without client ID
+        # start new authentication first
+        internal_response = self.setup_for_authn_response(context, frontend, authn_req)
+        http_resp = frontend.handle_authn_response(context, internal_response)
+        _res = urlparse(http_resp.message).query
+        resp = AuthorizationResponse().from_urlencoded(_res)
+        context.request = {
+            'grant_type': 'authorization_code',
+            'redirect_uri': CLIENT_RED_URL,
+            'state': CLIENT_AUTHN_REQUEST['state'],
+            'code': resp["code"],
+        }
+        token_resp = frontend.token_endpoint(context)
+        _token_resp = json.loads(token_resp.message)
+        assert _token_resp.get('access_token')
+        assert _token_resp.get('id_token')
+
+        # cleanup
+        self.clean_inmemory(frontend)
+
         # Test UserInfo endpoint with FAULTY access_token
         context.request = {}
         _access_token = _token_resp['access_token']
@@ -851,7 +871,7 @@ class TestOidcOpFrontend(object):
         assert res.message == '{"error": "invalid_request", "error_description": "consent in prompt"}'
 
 
-    def teardown(self):
+    def teardown_method(self):
         """ Clean up mongo """
         frontend = self.create_frontend(OIDCOP_CONF)
         if frontend.app.storage.client_db:

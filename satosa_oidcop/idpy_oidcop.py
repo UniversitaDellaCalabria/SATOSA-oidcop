@@ -331,22 +331,41 @@ class OidcOpEndpoints(OidcOpUtils):
         # in token endpoint we cannot parse a request without having loaded cdb and session first
         try:
             parse_req = self._parse_request(
-                endpoint, context, http_headers=http_headers)
-        except UnknownToken as exp:
-            return self.send_response(JsonResponse(
-                {"error": "invalid_token", "error_description": "Unknown Token"}, status="403")
+                endpoint, context, http_headers=http_headers
+            )
+        except UnknownToken:
+            return self.send_response(
+                JsonResponse(
+                    {"error": "invalid_token", "error_description": "Unknown Token"},
+                    status="403",
+                )
             )
 
+        ec = endpoint.server_get("endpoint_context")
+        self._load_claims(ec)
         proc_req = self._process_request(
             endpoint, context, parse_req, http_headers)
+        # flush as soon as possible, otherwise in case of an exception it would be
+        # stored in the object ... until a next .load would happen ...
+        ec.userinfo.flush()
+
         if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
         elif isinstance(proc_req, TokenErrorResponse):
             return self.send_response(JsonResponse(proc_req.to_dict(), status="403"))
 
+        # TODO: remove when migrate to idpy-oidc
+        # PATCH https://github.com/UniversitaDellaCalabria/SATOSA-oidcop/issues/29
+        if isinstance(proc_req["response_args"].get("scope", str), list):
+            proc_req["response_args"]["scope"] = " ".join(
+                proc_req["response_args"]["scope"]
+            )
+        # end PATCH
+
         # better return jwt or jwe here!
         self.store_session_to_db()
         response = JsonResponse(proc_req["response_args"])
+
         return self.send_response(response)
 
     def userinfo_endpoint(self, context: ExtendedContext):
@@ -361,22 +380,7 @@ class OidcOpEndpoints(OidcOpUtils):
             endpoint, context, http_headers=http_headers)
 
         ec = endpoint.server_get("endpoint_context")
-        # Load claims
-        claims = {}
-        sman = ec.session_manager
-        for k, v in sman.dump()["db"].items():
-            if v[0] == "idpyoidc.server.session.grant.Grant":
-                sid = k
-                claims = self.app.storage.get_claims_from_sid(sid)
-                break
-        else:  # pragma: no cover
-            logger.warning(
-                "UserInfo endoint: Can't find any suitable sid/claims from stored session"
-            )
-        # That's a patchy runtime definition of userinfo db configuration
-        ec.userinfo.load(claims)
-        # end load claims
-
+        self._load_claims(ec)
         proc_req = self._process_request(
             endpoint, context, parse_req, http_headers)
         # flush as soon as possible, otherwise in case of an exception it would be
@@ -385,9 +389,14 @@ class OidcOpEndpoints(OidcOpUtils):
 
         if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
-        elif 'error' in proc_req:
+        elif "error" in proc_req or "error" in proc_req.get("response_args", {}):
             return self.send_response(
-                JsonResponse(proc_req.to_dict(), status="403")
+                JsonResponse(
+                    proc_req["response_args"]
+                    if "response_args" in proc_req
+                    else proc_req.to_dict(),
+                    status="403",
+                )
             )
 
         # better return jwt or jwe here!
@@ -395,6 +404,21 @@ class OidcOpEndpoints(OidcOpUtils):
 
         self.store_session_to_db()
         return self.send_response(response)
+
+    def _load_claims(self, endpoint_context):
+        claims = {}
+        sman = endpoint_context.session_manager
+        for k, v in sman.dump()["db"].items():
+            if v[0] == "oidcop.session.grant.Grant":
+                sid = k
+                claims = self.app.storage.get_claims_from_sid(sid)
+                break
+            else:  # pragma: no cover
+                logger.warning(
+                    "Can't find any suitable sid/claims from stored session")
+
+        # That's a patchy runtime definition of userinfo db configuration
+        endpoint_context.userinfo.load(claims)
 
     def registration_read_endpoint(self, context: Context):
         """
@@ -537,8 +561,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
             return proc_req
 
         try:
-            info = endpoint.do_response(request=context.request, **proc_req)
-            # response = info['response']
+            endpoint.do_response(request=context.request, **proc_req)
         except Exception as excp:  # pragma: no cover
             # TODO - something to be done with the help of unit test
             # this should be for humans if auth code flow
@@ -633,11 +656,14 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         _token_usage_rules = _ec.authn_broker.get_method_by_id("user")
 
         session_manager = _ec.session_manager
+        client = self.app.storage.get_client_by_id(client_id)
+        client_subject_type = client.get("subject_type", "public")
         _session_id = session_manager.create_session(
             authn_event=authn_event,
             auth_req=parse_req,
             user_id=sub,
             client_id=client_id,
+            sub_type=client_subject_type,
             token_usage_rules=_token_usage_rules,
         )
 
@@ -705,3 +731,28 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         # store oidc session with user claims
         self.store_session_to_db(claims=combined_claims)
         return self.send_response(response)
+
+    def handle_backend_error(self, exception):
+        """
+        See super class satosa.frontends.base.FrontendModule
+        :type exception: satosa.exception.SATOSAError
+        :rtype: oic.utils.http_util.Response
+        """
+        auth_req = AuthorizationRequest().from_urlencoded(
+            urlencode(exception.state[self.name]["oidc_request"])
+        )
+        msg = exception.message
+        error_resp = AuthorizationErrorResponse(
+            error="access_denied",
+            error_description=msg,
+            # If the client sent us a state parameter, we should reflect it back according to the spec
+            **({"state": auth_req["state"]} if "state" in auth_req else {}),
+        )
+        logline = lu.LOG_FMT.format(
+            id=lu.get_session_id(exception.state), message=msg)
+        logger.info(logline)
+        return SeeOther(
+            error_resp.request(
+                auth_req["redirect_uri"], auth_req["response_type"] != ["code"]
+            )
+        )

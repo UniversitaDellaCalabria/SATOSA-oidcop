@@ -1,5 +1,8 @@
+import logging
 import pymongo
 import pytest
+
+logger = logging.getLogger(__name__)
 
 from satosa.context import Context
 from satosa.state import State
@@ -23,6 +26,15 @@ import pymongo
 import pytest
 
 
+class DummyInterface:
+    
+    def wait(self):
+        return True
+    
+    def terminate(self):
+        return True
+
+
 class MongoTemporaryInstance(object):
     """Singleton to manage a temporary MongoDB instance
 
@@ -42,14 +54,26 @@ class MongoTemporaryInstance(object):
     def __init__(self):
         self._tmpdir = tempfile.mkdtemp()
         self._port = 27017
-        self._process = subprocess.Popen(['mongod', '--bind_ip', 'localhost',
-                                          '--port', str(self._port),
-                                          '--dbpath', self._tmpdir,
-                                          '--nojournal',
-                                          '--noauth',
-                                          '--syncdelay', '0'],
-                                         stdout=open('/tmp/mongo-temp.log', 'wb'),
-                                         stderr=subprocess.STDOUT)
+        
+        try:
+            self._process = subprocess.Popen(
+                [
+                    'mongod', '--bind_ip', 'localhost',
+                    '--port', str(self._port),
+                    '--dbpath', self._tmpdir,
+                    '--nojournal',
+                    '--noauth',
+                    '--syncdelay', '0'
+                ],
+                stdout=open('/tmp/mongo-temp.log', 'wb'),
+                stderr=subprocess.STDOUT
+            )
+        except FileNotFoundError as e:
+            logger.warning(
+                "Mongodb local executable not found, trying to use docker "
+                f"compose mongodb: {e}"
+            )
+            self._process = DummyInterface()
 
         # XXX: wait for the instance to be ready
         #      Mongo is ready in a glance, we just wait to be able to open a
