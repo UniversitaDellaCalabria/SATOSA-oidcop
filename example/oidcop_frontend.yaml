@@ -213,7 +213,7 @@ config:
               - A192GCM
               - A256GCM
               id_token_signing_alg_values_supported: *id002
-          jwks_file: data/oidc_op/private/token_jwks.json
+          #jwks_file: data/oidc_op/private/token_jwks.json
           refresh:
             kwargs:
               lifetime: 86400
