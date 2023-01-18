@@ -116,7 +116,7 @@ docker run --rm -e ALLOW_EMPTY_PASSWORD=yes -e MONGODB_ENABLE_JOURNAL=false -p 2
 Then run the tests:
 
 ````
-pip install pytest
+pip install pytest pytest-cov
 pytest --cov=satosa_oidcop -v --cov-report term --cov-fail-under=95 tests/
 ````
 

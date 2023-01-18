@@ -875,7 +875,7 @@ class TestOidcOpFrontend(object):
         assert res.message == '{"error": "invalid_request", "error_description": "consent in prompt"}'
 
 
-    def teardown(self):
+    def teardown_method(self):
         """ Clean up mongo """
         frontend = self.create_frontend(OIDCOP_CONF)
         if frontend.app.storage.client_db:
