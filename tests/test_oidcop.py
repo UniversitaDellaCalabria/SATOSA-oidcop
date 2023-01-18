@@ -534,7 +534,7 @@ class TestOidcOpFrontend(object):
         _res = urlparse(http_resp.message).query
         resp = AuthorizationResponse().from_urlencoded(_res)
 
-        assert resp["scope"] == authn_req["scope"]
+        assert sorted(resp["scope"]) == sorted(authn_req["scope"])
         assert resp["code"]
         assert frontend.name not in context.state
         # Test Token endpoint
@@ -727,7 +727,7 @@ class TestOidcOpFrontend(object):
         _res = urlparse(http_resp.message).query
         resp = AuthorizationResponse().from_urlencoded(_res)
 
-        assert resp["scope"] == authn_req["scope"]
+        assert sorted(resp["scope"]) == sorted(authn_req["scope"])
         assert resp["code"]
         assert frontend.name not in context.state
 
@@ -837,7 +837,7 @@ class TestOidcOpFrontend(object):
         _res = urlparse(http_resp.message).query
         resp = AuthorizationResponse().from_urlencoded(_res)
 
-        assert resp["scope"] == authn_req["scope"]
+        assert sorted(resp["scope"]) == sorted(authn_req["scope"])
         assert resp["code"]
         assert frontend.name not in context.state
 

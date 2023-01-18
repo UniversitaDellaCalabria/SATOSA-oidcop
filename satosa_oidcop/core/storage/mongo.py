@@ -63,10 +63,10 @@ class Mongodb(SatosaOidcStorage):
             "refresh_token": "",
             "claims": claims or {},
             "dump": json.dumps(_db),
-            "key": ses_man_dump['crypt_config']['kwargs']["password"],
+            "key": ses_man_dump['crypt_config']['kwargs']["key"],
             "salt": ses_man_dump['crypt_config']['kwargs']["salt"]
         }
-
+                
         for k, v in _db.items():
             # TODO: ask to roland to have something better than this
             if len(k) > 128 and ";;" not in k and v[0] == "idpyoidc.server.session.grant.Grant":
@@ -77,7 +77,7 @@ class Mongodb(SatosaOidcStorage):
             field_name = self.session_attr_map[classname]
             if field_name == "sub":
                 data["client_id"] = v[1]["subordinate"][0]
-                data[field_name] = v[1]["user_id"]
+                data[field_name] = _db[list(_db.keys())[2]][1]['sub']
             elif field_name == "client_id":
                 data["grant_id"] = v[1]["subordinate"][0]
             elif field_name == "grant_id":
