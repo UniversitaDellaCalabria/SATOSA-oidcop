@@ -110,8 +110,13 @@ Each time a request is handled by an endpoint the oidcop session manager loads t
 Before you run the tests mind that you've to start a local mongod instance, e.g. with:
 
 ```
-docker run --rm -e ALLOW_EMPTY_PASSWORD=yes -e MONGODB_ENABLE_JOURNAL=false -p 27017:27017 --name mongodb bitnami/mongodb:latest
+sudo docker run --rm -e ALLOW_EMPTY_PASSWORD=yes -e MONGODB_ENABLE_JOURNAL=false -p 27017:27017 --name mongodb bitnami/mongodb:latest
 ```
+
+If you like you can use mongo-express as a management UI over the local mongo instance:
+````
+sudo docker run -e ME_CONFIG_MONGODB_SERVER=$MONGOHOST-OR-DOCKER-BRIDGE-LIKE-172.17.0.1 -p 8081:8081 mongo-express
+````
 
 Then run the tests:
 

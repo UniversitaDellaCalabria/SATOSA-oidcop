@@ -76,7 +76,7 @@ class Mongodb(SatosaOidcStorage):
             classname = v[0]
             field_name = self.session_attr_map[classname]
             if field_name == "sub":
-                data["client_id"] = v[1]["subordinate"][0]
+                data["client_id"] = list(_db.keys())[1].split(";")[-1]
                 data[field_name] = _db[list(_db.keys())[2]][1]['sub']
             elif field_name == "client_id":
                 data["grant_id"] = v[1]["subordinate"][0]
@@ -169,7 +169,7 @@ class Mongodb(SatosaOidcStorage):
         self._connect()
         client_id = _client_data["client_id"]
         if self.get_client_by_id(client_id):
-            logger.warning(
+            logger.debug(
                 f"OIDC Client {client_id} already present in the client db")
             return
         self.client_db.insert_one(_client_data)

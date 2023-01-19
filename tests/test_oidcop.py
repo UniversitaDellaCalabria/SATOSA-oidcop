@@ -171,13 +171,7 @@ OIDCOP_CONF = {
             "client_authn_method": None,
             "request_object_encryption_alg_values_supported": [
               "RSA-OAEP",
-              "RSA-OAEP-256",
-              "A192KW",
-              "A256KW",
-              "ECDH-ES",
-              "ECDH-ES+A128KW",
-              "ECDH-ES+A192KW",
-              "ECDH-ES+A256KW"
+              "RSA-OAEP-256"
             ],
             "request_parameter_supported": True,
             "request_uri_parameter_supported": True,
@@ -214,13 +208,7 @@ OIDCOP_CONF = {
             ],
             "userinfo_encryption_alg_values_supported": [
               "RSA-OAEP",
-              "RSA-OAEP-256",
-              "A192KW",
-              "A256KW",
-              "ECDH-ES",
-              "ECDH-ES+A128KW",
-              "ECDH-ES+A192KW",
-              "ECDH-ES+A256KW"
+              "RSA-OAEP-256"
             ],
             "userinfo_signing_alg_values_supported": [
               "RS256",
@@ -332,13 +320,7 @@ OIDCOP_CONF = {
           "kwargs": {
             "id_token_encryption_alg_values_supported": [
               "RSA-OAEP",
-              "RSA-OAEP-256",
-              "A192KW",
-              "A256KW",
-              "ECDH-ES",
-              "ECDH-ES+A128KW",
-              "ECDH-ES+A192KW",
-              "ECDH-ES+A256KW"
+              "RSA-OAEP-256"
             ],
             "id_token_encryption_enc_values_supported": [
               "A128CBC-HS256",
@@ -356,7 +338,6 @@ OIDCOP_CONF = {
             ]
           }
         },
-        "jwks_file": "data/oidc_op/private/token_jwks.json",
         "refresh": {
           "kwargs": {
             "lifetime": 86400
@@ -552,7 +533,7 @@ class TestOidcOpFrontend(object):
         basic_auth = urlsafe_b64encode(credentials.encode("utf-8")).decode("utf-8")
         _basic_auth = f"Basic {basic_auth}"
         context.request_authorization = _basic_auth
-
+        
         # cleanup
         self.clean_inmemory(frontend)
 
@@ -567,6 +548,7 @@ class TestOidcOpFrontend(object):
         # Test Token endpoint without client ID
         # start new authentication first
         internal_response = self.setup_for_authn_response(context, frontend, authn_req)
+        
         http_resp = frontend.handle_authn_response(context, internal_response)
         _res = urlparse(http_resp.message).query
         resp = AuthorizationResponse().from_urlencoded(_res)

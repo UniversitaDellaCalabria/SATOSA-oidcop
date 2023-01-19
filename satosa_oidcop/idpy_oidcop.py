@@ -189,7 +189,9 @@ class OidcOpUtils(object):
         """
         http_headers = http_headers or self._get_http_headers(context)
         try:
-            parse_req = endpoint.parse_request(context.request, http_info=http_headers)
+            parse_req = endpoint.parse_request(
+                context.request, http_info=http_headers
+        )
         except (InvalidClient, UnknownClient, UnAuthorizedClient) as err:
             logger.error(err)
             response = JsonResponse(
@@ -343,8 +345,7 @@ class OidcOpEndpoints(OidcOpUtils):
 
         ec = endpoint.server_get("endpoint_context")
         self._load_claims(ec)
-        proc_req = self._process_request(
-            endpoint, context, parse_req, http_headers)
+        proc_req = self._process_request(endpoint, context, parse_req, http_headers)
         # flush as soon as possible, otherwise in case of an exception it would be
         # stored in the object ... until a next .load would happen ...
         ec.userinfo.flush()
@@ -375,9 +376,9 @@ class OidcOpEndpoints(OidcOpUtils):
 
         # everything depends by bearer access token here
         self._load_session({}, endpoint, http_headers)
-
         parse_req = self._parse_request(
-            endpoint, context, http_headers=http_headers)
+            endpoint, context, http_headers=http_headers
+        )
 
         ec = endpoint.server_get("endpoint_context")
         self._load_claims(ec)
@@ -409,13 +410,17 @@ class OidcOpEndpoints(OidcOpUtils):
         claims = {}
         sman = endpoint_context.session_manager
         for k, v in sman.dump()["db"].items():
-            if v[0] == "oidcop.session.grant.Grant":
+            if v[0] == "idpyoidc.server.session.grant.Grant":
                 sid = k
                 claims = self.app.storage.get_claims_from_sid(sid)
                 break
             else:  # pragma: no cover
-                logger.warning(
-                    "Can't find any suitable sid/claims from stored session")
+                continue
+        
+        if not claims:
+            logger.warning(
+                "Can't find any suitable sid/claims from stored session"
+            )
 
         # That's a patchy runtime definition of userinfo db configuration
         endpoint_context.userinfo.load(claims)
