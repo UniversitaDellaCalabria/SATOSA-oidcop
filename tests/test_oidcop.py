@@ -133,6 +133,7 @@ OIDCOP_CONF = {
                   "id_token"
                 ]
               },
+              "access_token": {},
               "refresh_token": {
                 "supports_minting": [
                   "access_token",
@@ -154,7 +155,19 @@ OIDCOP_CONF = {
           "pairwise"
         ],
         "scopes_supported": ["openid", "profile", "offline_access"],
-        "claims_supported": ["sub", "given_name", "birthdate", "email"]
+        "claims_supported": ["sub", "given_name", "birthdate", "email"],
+        "request_object_signing_alg_values_supported": [
+          "RS256",
+          "RS384",
+          "RS512",
+          "ES256",
+          "ES384",
+          "ES512"
+        ]
+      },
+      "claims_interface": {
+        "class": "idpyoidc.server.session.claims.ClaimsInterface",
+        "kwargs": {}
       },
       "endpoint": {
         "provider_info": {
@@ -544,27 +557,6 @@ class TestOidcOpFrontend(object):
         # cleanup
         self.clean_inmemory(frontend)
 
-        # Test Token endpoint without client ID
-        # start new authentication first
-        internal_response = self.setup_for_authn_response(context, frontend, authn_req)
-        
-        http_resp = frontend.handle_authn_response(context, internal_response)
-        _res = urlparse(http_resp.message).query
-        resp = AuthorizationResponse().from_urlencoded(_res)
-        context.request = {
-            'grant_type': 'authorization_code',
-            'redirect_uri': CLIENT_RED_URL,
-            'state': CLIENT_AUTHN_REQUEST['state'],
-            'code': resp["code"],
-        }
-        token_resp = frontend.token_endpoint(context)
-        _token_resp = json.loads(token_resp.message)
-        assert _token_resp.get('access_token')
-        assert _token_resp.get('id_token')
-
-        # cleanup
-        self.clean_inmemory(frontend)
-
         # Test UserInfo endpoint with FAULTY access_token
         context.request = {}
         _access_token = _token_resp['access_token']
@@ -593,6 +585,53 @@ class TestOidcOpFrontend(object):
         context.request_authorization = _basic_auth
         introspection_resp = frontend.introspection_endpoint(context)
         assert json.loads(introspection_resp.message).get('sub')
+
+    def test_token_endpoint_without_clientid(self, context, frontend, authn_req):
+        self.insert_client_in_client_db(frontend, redirect_uri = authn_req["redirect_uri"])
+        internal_response = self.setup_for_authn_response(context, frontend, authn_req)
+        http_resp = frontend.handle_authn_response(context, internal_response)
+        #  assert http_resp.message.startswith(authn_req["redirect_uri"])
+        #  assert http_resp.status == '303 See Other'
+        _res = urlparse(http_resp.message).query
+        resp = AuthorizationResponse().from_urlencoded(_res)
+
+        #  assert sorted(resp["scope"]) == sorted(authn_req["scope"])
+        #  assert resp["code"]
+        #  assert frontend.name not in context.state
+        # Test Token endpoint
+        context.request = {
+            'grant_type': 'authorization_code',
+            'redirect_uri': CLIENT_RED_URL,
+            'client_id': CLIENT_AUTHN_REQUEST['client_id'],
+            'state': CLIENT_AUTHN_REQUEST['state'],
+            'code': resp["code"],
+        }
+
+        credentials = f"{CLIENT_1_ID}:{CLIENT_1_PASSWD}"
+        basic_auth = urlsafe_b64encode(credentials.encode("utf-8")).decode("utf-8")
+        _basic_auth = f"Basic {basic_auth}"
+        context.request_authorization = _basic_auth
+    
+        # Test Token endpoint without client ID
+        # start new authentication first
+        internal_response = self.setup_for_authn_response(context, frontend, authn_req)
+        
+        http_resp = frontend.handle_authn_response(context, internal_response)
+        _res = urlparse(http_resp.message).query
+        resp = AuthorizationResponse().from_urlencoded(_res)
+        context.request = {
+            'grant_type': 'authorization_code',
+            'redirect_uri': CLIENT_RED_URL,
+            'state': CLIENT_AUTHN_REQUEST['state'],
+            'code': resp["code"],
+        }
+        token_resp = frontend.token_endpoint(context)
+        _token_resp = json.loads(token_resp.message)
+        assert _token_resp.get('access_token')
+        assert _token_resp.get('id_token')
+
+        # cleanup
+        self.clean_inmemory(frontend)
 
     def test_fault_token_endpoint(self, context, frontend):
         # Test Token endpoint

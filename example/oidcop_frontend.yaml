@@ -85,12 +85,6 @@ config:
               request_object_encryption_alg_values_supported: &id001
               - RSA-OAEP
               - RSA-OAEP-256
-              - A192KW
-              - A256KW
-              - ECDH-ES
-              - ECDH-ES+A128KW
-              - ECDH-ES+A192KW
-              - ECDH-ES+A256KW
               request_parameter_supported: true
               request_uri_parameter_supported: true
               response_modes_supported:
