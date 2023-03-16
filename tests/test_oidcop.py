@@ -259,7 +259,7 @@ OIDCOP_CONF = {
         "verify": False
       },
       "issuer": "https://localhost:10000",
-      "key_conf": {
+      "keys": {
         "key_defs": [
           {
             "type": "RSA",
@@ -503,7 +503,6 @@ class TestOidcOpFrontend(object):
             frontend.internal_attributes
         ).to_internal("saml", USERS["testuser1"])
         internal_response.subject_id = USERS["testuser1"]["eduPersonTargetedID"][0]
-
         return internal_response
 
     def test_handle_authn_response_authcode_flow(self, context, frontend, authn_req):
@@ -579,6 +578,7 @@ class TestOidcOpFrontend(object):
         context.request_authorization = f"{_token_resp['token_type']} {_access_token}"
         userinfo_resp = frontend.userinfo_endpoint(context)
 
+        # TODO clientId is not in endpoint_context.cdb and it causes UnknownClient exception. Is it possible it is caused by cleanup?
         _userinfo_resp = json.loads(userinfo_resp.message)
         assert _userinfo_resp.get("sub")
 
@@ -688,7 +688,6 @@ class TestOidcOpFrontend(object):
         introspection_resp = frontend.introspection_endpoint(context)
         assert json.loads(introspection_resp.message).get('sub')
 
-
     def test_refresh_token(self, context, frontend, authn_req):
         response_type = "code".split(' ')
         scope = ["openid", "offline_access"]
@@ -747,8 +746,10 @@ class TestOidcOpFrontend(object):
         # Test FAULTY refresh_token
         context.request["refresh_token"] = _res.get('refresh_token')[:-2]
         refresh_resp = frontend.token_endpoint(context)
+        assert refresh_resp.status == "403"
         _res = json.loads(refresh_resp.message)
-        assert _res['error'] == "invalid_token"
+        assert _res['error'] == "invalid_grant"
+        assert _res['error_description'] == "Invalid refresh token"
 
     # def test_private_key_jwt_token_endpoint(self, context, frontend):
         # """
@@ -840,6 +841,7 @@ class TestOidcOpFrontend(object):
         _basic_auth = f"Basic {basic_auth}"
         context.request_authorization = _basic_auth
 
+        # TODO idpyoidc.server.exception.InvalidBranchID exception is caused cuz 'one!for!all' (user_id) is not found in Database.db (don't know how to put it there)
         token_resp = frontend.token_endpoint(context)
         _token_resp = json.loads(token_resp.message)
         assert _token_resp.get('error') == "invalid_grant"
