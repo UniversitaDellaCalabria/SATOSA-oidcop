@@ -14,10 +14,9 @@ from idpyoidc.message.oidc import AuthnToken
 from idpyoidc.message.oidc import TokenErrorResponse
 from idpyoidc.message.oidc import AuthorizationRequest
 from idpyoidc.server.authn_event import create_authn_event
-from idpyoidc.server.exception import InvalidClient
+from idpyoidc.server.exception import InvalidClient, ClientAuthenticationError
 from idpyoidc.server.exception import UnAuthorizedClient
 from idpyoidc.server.exception import UnknownClient
-from idpyoidc.server.token.exception import UnknownToken
 from idpyoidc.server.oidc.registration import random_client_id
 
 import satosa.logging_util as lu
@@ -28,7 +27,6 @@ from satosa.response import SeeOther
 from .core.application import oidcop_application as oidcop_app
 from .core.claims import combine_claim_values
 from .core.response import JsonResponse
-
 
 IGNORED_HEADERS = ["cookie", "user-agent"]
 logger = logging.getLogger(__name__)
@@ -189,14 +187,16 @@ class OidcOpUtils(object):
         """
         http_headers = http_headers or self._get_http_headers(context)
         try:
-            parse_req = endpoint.parse_request(
-                context.request, http_info=http_headers
-        )
-        except (InvalidClient, UnknownClient, UnAuthorizedClient) as err:
+            parse_req = endpoint.parse_request(context.request, http_info=http_headers)
+        except (
+            InvalidClient,
+            UnknownClient,
+            UnAuthorizedClient,
+            ClientAuthenticationError,
+        ) as err:
             logger.error(err)
             response = JsonResponse(
-                {"error": "unauthorized_client",
-                    "error_description": str(err)},
+                {"error": "unauthorized_client", "error_description": str(err)},
                 status="403",
             )
             return self.send_response(response)
@@ -331,17 +331,7 @@ class OidcOpEndpoints(OidcOpUtils):
         raw_request = AccessTokenRequest().from_urlencoded(urlencode(context.request))
         self._load_session(raw_request, endpoint, http_headers)
         # in token endpoint we cannot parse a request without having loaded cdb and session first
-        try:
-            parse_req = self._parse_request(
-                endpoint, context, http_headers=http_headers
-            )
-        except UnknownToken:
-            return self.send_response(
-                JsonResponse(
-                    {"error": "invalid_token", "error_description": "Unknown Token"},
-                    status="403",
-                )
-            )
+        parse_req = self._parse_request(endpoint, context, http_headers=http_headers)
 
         ec = endpoint.server_get("endpoint_context")
         self._load_claims(ec)
@@ -376,9 +366,23 @@ class OidcOpEndpoints(OidcOpUtils):
 
         # everything depends by bearer access token here
         self._load_session({}, endpoint, http_headers)
-        parse_req = self._parse_request(
-            endpoint, context, http_headers=http_headers
-        )
+
+        # TODO: I think this is bug in idpyoidc when authentication is None and berear_header signature validation fails,
+        # idpyoidc validation should probably throw ClientAuthenticationError and return response with
+        # {"error": "invalid_token", "error_description": "<TOKEN>"}
+        # right now it causes KeyError, cuz there is no token in auth_info
+        # (Debugged with tests)
+        try:
+            parse_req = self._parse_request(
+                endpoint, context, http_headers=http_headers
+            )
+        except KeyError:
+            return self.send_response(
+                JsonResponse(
+                    {"error": "invalid_token", "error_description": "<TOKEN>"},
+                    status="403",
+                )
+            )
 
         ec = endpoint.server_get("endpoint_context")
         self._load_claims(ec)
@@ -416,7 +420,7 @@ class OidcOpEndpoints(OidcOpUtils):
                 break
             else:  # pragma: no cover
                 continue
-        
+
         if not claims:
             logger.warning(
                 "Can't find any suitable sid/claims from stored session"
