@@ -70,8 +70,8 @@ class MongoTemporaryInstance(object):
             )
         except FileNotFoundError as e:
             logger.warning(
-                "Mongodb local executable not found, trying to use docker "
-                f"compose mongodb: {e}"
+                "Mongodb executable not found to start test MongoDB instance, "
+                f"trying to connect to docker mongodb: {e}"
             )
             self._process = DummyInterface()
 
