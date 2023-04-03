@@ -429,7 +429,7 @@ class TestOidcOpFrontend(object):
 
     def clean_inmemory(self, frontend):
         # clean up cdb
-        _ec = frontend.app.server.server_get("endpoint_context")
+        _ec = frontend.app.server.context
         _ec.cdb = {}
         # sman
         frontend._flush_endpoint_context_memory()
@@ -545,7 +545,7 @@ class TestOidcOpFrontend(object):
         basic_auth = urlsafe_b64encode(credentials.encode("utf-8")).decode("utf-8")
         _basic_auth = f"Basic {basic_auth}"
         context.request_authorization = _basic_auth
-        
+
         # cleanup
         self.clean_inmemory(frontend)
 
@@ -556,6 +556,28 @@ class TestOidcOpFrontend(object):
 
         # cleanup
         self.clean_inmemory(frontend)
+
+        # Test Token endpoint without client ID
+        # start new authentication first
+        internal_response = self.setup_for_authn_response(context, frontend, authn_req)
+
+        http_resp = frontend.handle_authn_response(context, internal_response)
+        _res = urlparse(http_resp.message).query
+        resp = AuthorizationResponse().from_urlencoded(_res)
+        context.request = {
+            'grant_type': 'authorization_code',
+            'redirect_uri': CLIENT_RED_URL,
+            'state': CLIENT_AUTHN_REQUEST['state'],
+            'code': resp["code"],
+        }
+        token_resp = frontend.token_endpoint(context)
+        _token_resp = json.loads(token_resp.message)
+        assert _token_resp.get('access_token')
+        assert _token_resp.get('id_token')
+
+        # cleanup
+        self.clean_inmemory(frontend)
+
 
         # Test UserInfo endpoint with FAULTY access_token
         context.request = {}
@@ -662,7 +684,7 @@ class TestOidcOpFrontend(object):
         context.request_authorization = f"Basic {basic_auth}"
         token_resp = frontend.token_endpoint(context)
         assert token_resp.status == '403'
-        assert json.loads(token_resp.message)['error'] == 'invalid_grant'
+        assert json.loads(token_resp.message)['error'] == 'invalid_request'
 
     def test_load_cdb_basicauth(self, context, frontend):
         self.insert_client_in_client_db(frontend)
@@ -883,7 +905,7 @@ class TestOidcOpFrontend(object):
         # TODO idpyoidc.server.exception.InvalidBranchID exception is caused cuz 'one!for!all' (user_id) is not found in Database.db (don't know how to put it there)
         token_resp = frontend.token_endpoint(context)
         _token_resp = json.loads(token_resp.message)
-        assert _token_resp.get('error') == "invalid_grant"
+        assert _token_resp.get('error') == "invalid_request"
 
 
     def test_authorization_endpoint_refresh_without_consent(self, context, frontend):

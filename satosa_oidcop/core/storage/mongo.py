@@ -3,6 +3,8 @@ import copy
 import datetime
 import json
 import logging
+
+from idpyoidc.server.exception import ClientGrantMismatch
 import pymongo
 
 from .base import SatosaOidcStorage
@@ -63,10 +65,10 @@ class Mongodb(SatosaOidcStorage):
             "refresh_token": "",
             "claims": claims or {},
             "dump": json.dumps(_db),
-            "key": ses_man_dump['crypt_config']['kwargs']["key"],
+            "key": ses_man_dump['crypt_config']['kwargs']["password"],
             "salt": ses_man_dump['crypt_config']['kwargs']["salt"]
         }
-        
+
         for k, v in _db.items():
             # TODO: ask to roland to have something better than this
             if len(k) > 128 and ";;" not in k and v[0] == "idpyoidc.server.session.grant.Grant":
@@ -112,7 +114,7 @@ class Mongodb(SatosaOidcStorage):
     ) -> dict:
         """
         This method detects some usefull elements for doing a lookup in the session storage
-        then loads the session inmemory
+        then loads the session in-memory
 
         It doesn't want to do any validation but only loading a session inmemory
         Security validation will be made later by oidcop in process_request
@@ -156,6 +158,8 @@ class Mongodb(SatosaOidcStorage):
             data["db"] = json.loads(res["dump"])
             session_manager.flush()
             session_manager.load(data)
+        elif 'client_id' in _q:
+            raise ClientGrantMismatch('The client has not been issued the grant')
         return data
 
     def get_claims_from_sid(self, sid: str):
