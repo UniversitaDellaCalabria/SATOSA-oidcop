@@ -4,7 +4,7 @@ import datetime
 import json
 import logging
 
-from idpyoidc.server.exception import ClientGrantMismatch
+from idpyoidc.server.exception import NoSuchGrant
 import pymongo
 
 from .base import SatosaOidcStorage
@@ -159,7 +159,7 @@ class Mongodb(SatosaOidcStorage):
             session_manager.flush()
             session_manager.load(data)
         elif 'client_id' in _q:
-            raise ClientGrantMismatch('The client has not been issued the grant')
+            raise NoSuchGrant('The client has not been issued the grant')
         return data
 
     def get_claims_from_sid(self, sid: str):

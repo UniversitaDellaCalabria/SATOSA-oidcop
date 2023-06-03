@@ -15,7 +15,7 @@ from idpyoidc.message.oidc import AuthorizationRequest
 from idpyoidc.message.oidc import TokenErrorResponse
 from idpyoidc.server.authn_event import create_authn_event
 from idpyoidc.server.exception import ClientAuthenticationError
-from idpyoidc.server.exception import ClientGrantMismatch
+from idpyoidc.server.exception import NoSuchGrant
 from idpyoidc.server.exception import InvalidClient
 from idpyoidc.server.exception import UnAuthorizedClient
 from idpyoidc.server.exception import UnknownClient
@@ -199,8 +199,9 @@ class OidcOpUtils(object):
         """
         http_headers = http_headers or self._get_http_headers(context)
         try:
-            parse_req = endpoint.parse_request(context.request, http_info=http_headers,
-                                               get_client_info=self.get_client_info)
+            parse_req = endpoint.parse_request(
+                context.request, http_info=http_headers,
+            )
         except (
                 InvalidClient,
                 UnknownClient,
@@ -344,7 +345,7 @@ class OidcOpEndpoints(OidcOpUtils):
         raw_request = AccessTokenRequest().from_urlencoded(urlencode(context.request))
         try:
             self._load_session(raw_request, endpoint, http_headers)
-        except ClientGrantMismatch:
+        except NoSuchGrant:
             _response = JsonResponse(
                 {
                     "error": "invalid_request",
