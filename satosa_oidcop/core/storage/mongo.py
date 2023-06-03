@@ -3,25 +3,27 @@ import copy
 import datetime
 import json
 import logging
+
+from idpyoidc.server.exception import ClientGrantMismatch
 import pymongo
 
 from .base import SatosaOidcStorage
-from oidcop.session.manager import SessionManager
+from idpyoidc.server.session.manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
 
 class Mongodb(SatosaOidcStorage):
     session_attr_map = {
-        "oidcop.session.info.UserSessionInfo": "sub",
-        "oidcop.session.info.ClientSessionInfo": "client_id",
-        "oidcop.session.grant.Grant": "grant_id",
+        "idpyoidc.server.session.info.UserSessionInfo": "sub",
+        "idpyoidc.server.session.info.ClientSessionInfo": "client_id",
+        "idpyoidc.server.session.grant.Grant": "grant_id",
     }
     token_attr_map = {
-        "oidcop.session.token.AuthorizationCode": "authorization_code",
-        "oidcop.session.token.AccessToken": "access_token",
-        "oidcop.session.token.RefreshToken": "refresh_token",
-        "oidcop.session.token.IDToken": "id_token",
+        "idpyoidc.server.session.token.AuthorizationCode": "authorization_code",
+        "idpyoidc.server.session.token.AccessToken": "access_token",
+        "idpyoidc.server.session.token.RefreshToken": "refresh_token",
+        "idpyoidc.server.session.token.IDToken": "id_token",
     }
 
     def __init__(self, storage_conf: dict, url: str, connection_params: dict = None):
@@ -63,21 +65,21 @@ class Mongodb(SatosaOidcStorage):
             "refresh_token": "",
             "claims": claims or {},
             "dump": json.dumps(_db),
-            "key": ses_man_dump["key"],
-            "salt": ses_man_dump["salt"],
+            "key": ses_man_dump['crypt_config']['kwargs']["password"],
+            "salt": ses_man_dump['crypt_config']['kwargs']["salt"]
         }
 
         for k, v in _db.items():
             # TODO: ask to roland to have something better than this
-            if len(k) > 128 and ";;" not in k and v[0] == "oidcop.session.grant.Grant":
+            if len(k) > 128 and ";;" not in k and v[0] == "idpyoidc.server.session.grant.Grant":
                 data["sid_encrypted"] = k
                 continue
-
+    
             classname = v[0]
             field_name = self.session_attr_map[classname]
             if field_name == "sub":
-                data["client_id"] = v[1]["subordinate"][0]
-                data[field_name] = v[1]["user_id"]
+                data["client_id"] = list(_db.keys())[1].split(";")[-1]
+                data[field_name] = _db[list(_db.keys())[2]][1]['sub']
             elif field_name == "client_id":
                 data["grant_id"] = v[1]["subordinate"][0]
             elif field_name == "grant_id":
@@ -112,26 +114,25 @@ class Mongodb(SatosaOidcStorage):
     ) -> dict:
         """
         This method detects some usefull elements for doing a lookup in the session storage
-        then loads the session inmemory
+        then loads the session in-memory
 
         It doesn't want to do any validation but only loading a session inmemory
         Security validation will be made later by oidcop in process_request
         """
         data = {}
         _q = {}
-        http_authz = http_headers.get("headers", {}).get("authorization", {})
-        if "Basic " in http_authz:
-            # we want only bearer and dpop here!
-            http_authz = None
+        http_authz = http_headers.get("headers", {}).get("authorization", "")
 
         if parse_req.get("grant_type") == "authorization_code":
             # here for auth code flow and token endpoint only
             _q = {
                 "authorization_code": parse_req["code"],
-                "client_id": parse_req.get("client_id"),
+                "client_id": parse_req.get("client_id")
+                or self.get_client_id_by_basic_auth(http_authz),
             }
-        elif http_authz:
+        elif http_authz and "Basic " not in http_authz:
             # here for userinfo endpoint
+            # exclude Basic auth: we want only bearer and dpop here!
             _q = {
                 "access_token": http_authz.replace("Bearer ", ""),
             }
@@ -157,6 +158,8 @@ class Mongodb(SatosaOidcStorage):
             data["db"] = json.loads(res["dump"])
             session_manager.flush()
             session_manager.load(data)
+        elif 'client_id' in _q:
+            raise ClientGrantMismatch('The client has not been issued the grant')
         return data
 
     def get_claims_from_sid(self, sid: str):
@@ -170,12 +173,12 @@ class Mongodb(SatosaOidcStorage):
         self._connect()
         client_id = _client_data["client_id"]
         if self.get_client_by_id(client_id):
-            logger.warning(
+            logger.debug(
                 f"OIDC Client {client_id} already present in the client db")
             return
         self.client_db.insert_one(_client_data)
 
-    def get_client_by_basic_auth(self, request_authorization: str):
+    def get_client_creds_from_basic_auth(self, request_authorization: str):
         cred = base64.b64decode(
             request_authorization.replace("Basic ", "").encode())
         if not cred:
@@ -183,11 +186,26 @@ class Mongodb(SatosaOidcStorage):
 
         cred = cred.decode().split(":")
         if len(cred) == 2:
+            return cred
+
+    def get_client_id_by_basic_auth(self, request_authorization: str):
+        cred = self.get_client_creds_from_basic_auth(request_authorization)
+
+        if len(cred) == 2:
+            client_id = cred[0]
+            return client_id
+
+    def get_client_by_basic_auth(self, request_authorization: str):
+        cred = self.get_client_creds_from_basic_auth(request_authorization)
+
+        if len(cred) == 2:
             client_id = cred[0]
             client_secret = cred[1]
 
             self._connect()
-            return self.client_db.find_one({"client_id": client_id, "client_secret": client_secret})
+            return self.client_db.find_one(
+                {"client_id": client_id, "client_secret": client_secret}
+            )
 
     def get_registered_clients_id(self):
         self._connect()

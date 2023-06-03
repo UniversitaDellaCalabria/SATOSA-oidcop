@@ -9,13 +9,8 @@ def readme():
 
 _pkg_name = 'satosa_oidcop'
 
-with open(f'{_pkg_name}/__init__.py', 'r') as fd:
-    VERSION = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
-                        fd.read(), re.MULTILINE).group(1)
-
 setup(
     name=_pkg_name,
-    version=VERSION,
     description="SATOSA Frontend based on idetity python oidcop",
     long_description=readme(),
     long_description_content_type='text/markdown',
@@ -35,7 +30,7 @@ setup(
     },
     install_requires=[
         "satosa>=8.0.0",
-        "pymongo>=3.11,<=4.0.1",
-        "oidcop>=2.3.3,<=2.3.4"
+        "pymongo>=3.11,<=4.3",
+        "idpyoidc>=1.4.1"
     ],
 )

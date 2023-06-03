@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 'lts/*'
+      - name: Install npm dependencies
+        run: |
+          npm install semantic-release @semantic-release/commit-analyzer @semantic-release/git @semantic-release/release-notes-generator @semantic-release/github &&
+          echo @beepbeepgo:registry=https://gitlab.com/api/v4/packages/npm/ >> .npmrc &&
+          npm i @beepbeepgo/semantic-release-python
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install Python dependencies
+        run: |
+          python -m pip install setuptools wheel twine
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: npx semantic-release

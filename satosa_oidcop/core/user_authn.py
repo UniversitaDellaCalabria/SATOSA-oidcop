@@ -1,4 +1,4 @@
-from oidcop.user_authn.user import UserAuthnMethod
+from idpyoidc.server.user_authn.user import UserAuthnMethod
 
 
 class SatosaAuthnMethod(UserAuthnMethod):
