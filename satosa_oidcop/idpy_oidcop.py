@@ -100,6 +100,15 @@ class OidcOpUtils(object):
             )
             client_id = token.get("iss")
             client = self.app.storage.get_client_by_id(client_id)
+            
+        elif "Bearer " in getattr(context, "request_authorization", ""):
+            client = (
+                    self.app.storage.get_client_by_bearer_token(
+                        context.request_authorization)
+                    or {}
+            )
+            client_id = client.get("client_id")
+            
         else:  # pragma: no cover
             _ec.cdb = {}
             _msg = f"Client {client_id} not found!"
@@ -172,6 +181,7 @@ class OidcOpUtils(object):
         claims = self.app.storage.load_session_from_db(
             parse_req, http_headers, sman)
         logger.debug(f"Loaded oidcop session from db: {sman.dump()}")
+        
         return claims
 
     def _flush_endpoint_context_memory(self):
@@ -391,14 +401,33 @@ class OidcOpEndpoints(OidcOpUtils):
 
         # everything depends on bearer access token here
         self._load_session({}, endpoint, http_headers)
+        
+        # not load the client from the session using the bearer token
+        if self.dump_sessions():
+            # load cdb from authz bearer token
+            try:
+                self._load_cdb(context)
+            except Exception:
+                logger.warning(
+                    f"Userinfo endpoint request without any loadable client"
+                )
+                return self.send_response(
+                    JsonResponse(
+                        {"error": "invalid_client", "error_description": "<client not found>"},
+                        status="403",
+                    )
+                )
+        else:
+            logger.warning(
+                f"Userinfo endpoint request without any loadable sessions"
+            )
+            return self.send_response(
+                JsonResponse(
+                    {"error": "invalid_token", "error_description": "<no loadable session>"},
+                    status="403",
+                )
+            )
 
-        # TODO: I think this is bug in idpyoidc when authentication is None and berear_header
-        #  signature validation fails,
-        # idpyoidc validation should probably throw ClientAuthenticationError and return response
-        # with
-        # {"error": "invalid_token", "error_description": "<TOKEN>"}
-        # right now it causes KeyError, cuz there is no token in auth_info
-        # (Debugged with tests)
         try:
             parse_req = self._parse_request(
                 endpoint, context, http_headers=http_headers

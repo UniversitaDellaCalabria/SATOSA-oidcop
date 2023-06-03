@@ -578,20 +578,20 @@ class TestOidcOpFrontend(object):
         # cleanup
         self.clean_inmemory(frontend)
 
-
         # Test UserInfo endpoint with FAULTY access_token
         context.request = {}
         _access_token = _token_resp['access_token']
         context.request_authorization = f"{_token_resp['token_type']} {_access_token[:-2]}"
         userinfo_resp = frontend.userinfo_endpoint(context)
         assert userinfo_resp.status == "403"
-
+        
         # Test UserInfo endpoint
         context.request = {}
         _access_token = _token_resp['access_token']
         context.request_authorization = f"{_token_resp['token_type']} {_access_token}"
-        userinfo_resp = frontend.userinfo_endpoint(context)
 
+        userinfo_resp = frontend.userinfo_endpoint(context)
+        
         # TODO clientId is not in endpoint_context.cdb and it causes UnknownClient exception. Is it possible it is caused by cleanup?
         _userinfo_resp = json.loads(userinfo_resp.message)
         assert _userinfo_resp.get("sub")

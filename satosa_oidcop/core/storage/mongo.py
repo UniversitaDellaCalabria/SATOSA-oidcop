@@ -197,7 +197,7 @@ class Mongodb(SatosaOidcStorage):
 
     def get_client_by_basic_auth(self, request_authorization: str):
         cred = self.get_client_creds_from_basic_auth(request_authorization)
-
+        
         if len(cred) == 2:
             client_id = cred[0]
             client_secret = cred[1]
@@ -206,6 +206,10 @@ class Mongodb(SatosaOidcStorage):
             return self.client_db.find_one(
                 {"client_id": client_id, "client_secret": client_secret}
             )
+
+    def get_client_by_bearer_token(self, request_authorization: str):
+        access_token = request_authorization.replace("Bearer ", "")
+        return self.session_db.find_one({"access_token": access_token})
 
     def get_registered_clients_id(self):
         self._connect()
