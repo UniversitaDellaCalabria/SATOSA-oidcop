@@ -1,9 +1,9 @@
 import logging
 import os
 
-from oidcop.configure import OPConfiguration
-from oidcop.server import Server
-from oidcop.util import importer
+from idpyoidc.server.configure import OPConfiguration
+from idpyoidc.server import Server
+from idpyoidc.server.util import importer
 
 
 folder = os.path.dirname(os.path.realpath(__file__))

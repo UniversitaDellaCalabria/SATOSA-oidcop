@@ -1,4 +1,4 @@
-from oidcop.user_info import UserInfo
+from idpyoidc.server.user_info import UserInfo
 
 
 class UserInfoDict:

@@ -3,25 +3,27 @@ import copy
 import datetime
 import json
 import logging
+
+from idpyoidc.server.exception import NoSuchGrant
 import pymongo
 
 from .base import SatosaOidcStorage
-from oidcop.session.manager import SessionManager
+from idpyoidc.server.session.manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
 
 class Mongodb(SatosaOidcStorage):
     session_attr_map = {
-        "oidcop.session.info.UserSessionInfo": "sub",
-        "oidcop.session.info.ClientSessionInfo": "client_id",
-        "oidcop.session.grant.Grant": "grant_id",
+        "idpyoidc.server.session.info.UserSessionInfo": "sub",
+        "idpyoidc.server.session.info.ClientSessionInfo": "client_id",
+        "idpyoidc.server.session.grant.Grant": "grant_id",
     }
     token_attr_map = {
-        "oidcop.session.token.AuthorizationCode": "authorization_code",
-        "oidcop.session.token.AccessToken": "access_token",
-        "oidcop.session.token.RefreshToken": "refresh_token",
-        "oidcop.session.token.IDToken": "id_token",
+        "idpyoidc.server.session.token.AuthorizationCode": "authorization_code",
+        "idpyoidc.server.session.token.AccessToken": "access_token",
+        "idpyoidc.server.session.token.RefreshToken": "refresh_token",
+        "idpyoidc.server.session.token.IDToken": "id_token",
     }
 
     def __init__(self, storage_conf: dict, url: str, connection_params: dict = None):
@@ -63,21 +65,21 @@ class Mongodb(SatosaOidcStorage):
             "refresh_token": "",
             "claims": claims or {},
             "dump": json.dumps(_db),
-            "key": ses_man_dump["key"],
-            "salt": ses_man_dump["salt"],
+            "key": ses_man_dump['crypt_config']['kwargs']["password"],
+            "salt": ses_man_dump['crypt_config']['kwargs']["salt"]
         }
 
         for k, v in _db.items():
             # TODO: ask to roland to have something better than this
-            if len(k) > 128 and ";;" not in k and v[0] == "oidcop.session.grant.Grant":
+            if len(k) > 128 and ";;" not in k and v[0] == "idpyoidc.server.session.grant.Grant":
                 data["sid_encrypted"] = k
                 continue
-
+    
             classname = v[0]
             field_name = self.session_attr_map[classname]
             if field_name == "sub":
-                data["client_id"] = v[1]["subordinate"][0]
-                data[field_name] = v[1]["user_id"]
+                data["client_id"] = list(_db.keys())[1].split(";")[-1]
+                data[field_name] = _db[list(_db.keys())[2]][1]['sub']
             elif field_name == "client_id":
                 data["grant_id"] = v[1]["subordinate"][0]
             elif field_name == "grant_id":
@@ -112,7 +114,7 @@ class Mongodb(SatosaOidcStorage):
     ) -> dict:
         """
         This method detects some usefull elements for doing a lookup in the session storage
-        then loads the session inmemory
+        then loads the session in-memory
 
         It doesn't want to do any validation but only loading a session inmemory
         Security validation will be made later by oidcop in process_request
@@ -156,6 +158,8 @@ class Mongodb(SatosaOidcStorage):
             data["db"] = json.loads(res["dump"])
             session_manager.flush()
             session_manager.load(data)
+        elif 'client_id' in _q:
+            raise NoSuchGrant('The client has not been issued the grant')
         return data
 
     def get_claims_from_sid(self, sid: str):
@@ -169,7 +173,7 @@ class Mongodb(SatosaOidcStorage):
         self._connect()
         client_id = _client_data["client_id"]
         if self.get_client_by_id(client_id):
-            logger.warning(
+            logger.debug(
                 f"OIDC Client {client_id} already present in the client db")
             return
         self.client_db.insert_one(_client_data)
@@ -193,7 +197,7 @@ class Mongodb(SatosaOidcStorage):
 
     def get_client_by_basic_auth(self, request_authorization: str):
         cred = self.get_client_creds_from_basic_auth(request_authorization)
-
+        
         if len(cred) == 2:
             client_id = cred[0]
             client_secret = cred[1]
@@ -202,6 +206,10 @@ class Mongodb(SatosaOidcStorage):
             return self.client_db.find_one(
                 {"client_id": client_id, "client_secret": client_secret}
             )
+
+    def get_client_by_bearer_token(self, request_authorization: str):
+        access_token = request_authorization.replace("Bearer ", "")
+        return self.session_db.find_one({"access_token": access_token})
 
     def get_registered_clients_id(self):
         self._connect()
