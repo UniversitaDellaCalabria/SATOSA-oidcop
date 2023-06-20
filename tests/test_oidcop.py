@@ -8,12 +8,12 @@ from cryptojwt.key_jar import KeyJar
 from cryptojwt.jwk.jwk import key_from_jwk_dict
 from cryptojwt.tools import keyconv
 
-from idpyoidc.message.oidc import AccessTokenRequest
-from idpyoidc.message.oidc import AuthnToken
-from idpyoidc.message.oidc import AuthorizationRequest
-from idpyoidc.message.oidc import AuthorizationResponse
-from idpyoidc.message.oidc import RegistrationRequest
-from idpyoidc.server.exception import UnAuthorizedClient
+from oidcmsg.oidc import AccessTokenRequest
+from oidcmsg.oidc import AuthnToken
+from oidcmsg.oidc import AuthorizationRequest
+from oidcmsg.oidc import AuthorizationResponse
+from oidcmsg.oidc import RegistrationRequest
+from oidcop.exception import UnAuthorizedClient
 
 from saml2.authn_context import PASSWORD
 from satosa.attribute_mapping import AttributeMapper
@@ -105,7 +105,7 @@ OIDCOP_CONF = {
     "server_info": {
       "add_on": {
         "pkce": {
-          "function": "idpyoidc.server.oidc.add_on.pkce.add_pkce_support",
+          "function": "oidcop.oidc.add_on.pkce.add_pkce_support",
           "kwargs": {
             "code_challenge_method": "S256 S384 S512",
             "essential": False
@@ -119,7 +119,7 @@ OIDCOP_CONF = {
         }
       },
       "authz": {
-        "class": "idpyoidc.server.authz.AuthzHandling",
+        "class": "oidcop.authz.AuthzHandling",
         "kwargs": {
           "grant_config": {
             "expires_in": 43200,
@@ -133,7 +133,6 @@ OIDCOP_CONF = {
                   "id_token"
                 ]
               },
-              "access_token": {},
               "refresh_token": {
                 "supports_minting": [
                   "access_token",
@@ -155,36 +154,30 @@ OIDCOP_CONF = {
           "pairwise"
         ],
         "scopes_supported": ["openid", "profile", "offline_access"],
-        "claims_supported": ["sub", "given_name", "birthdate", "email"],
-        "request_object_signing_alg_values_supported": [
-          "RS256",
-          "RS384",
-          "RS512",
-          "ES256",
-          "ES384",
-          "ES512"
-        ]
-      },
-      "claims_interface": {
-        "class": "idpyoidc.server.session.claims.ClaimsInterface",
-        "kwargs": {}
+        "claims_supported": ["sub", "given_name", "birthdate", "email"]
       },
       "endpoint": {
         "provider_info": {
-          "class": "idpyoidc.server.oidc.provider_config.ProviderConfiguration",
+          "class": "oidcop.oidc.provider_config.ProviderConfiguration",
           "kwargs": {
             "client_authn_method": None
           },
           "path": ".well-known/openid-configuration"
         },
         "authorization": {
-          "class": "idpyoidc.server.oidc.authorization.Authorization",
+          "class": "oidcop.oidc.authorization.Authorization",
           "kwargs": {
             "claims_parameter_supported": True,
             "client_authn_method": None,
             "request_object_encryption_alg_values_supported": [
               "RSA-OAEP",
-              "RSA-OAEP-256"
+              "RSA-OAEP-256",
+              "A192KW",
+              "A256KW",
+              "ECDH-ES",
+              "ECDH-ES+A128KW",
+              "ECDH-ES+A192KW",
+              "ECDH-ES+A256KW"
             ],
             "request_parameter_supported": True,
             "request_uri_parameter_supported": True,
@@ -200,7 +193,7 @@ OIDCOP_CONF = {
           "path": "OIDC/authorization"
         },
         "token": {
-          "class": "idpyoidc.server.oidc.token.Token",
+          "class": "oidcop.oidc.token.Token",
           "kwargs": {
             "client_authn_method": [
               "client_secret_post",
@@ -212,7 +205,7 @@ OIDCOP_CONF = {
           "path": "OIDC/token"
         },
         "userinfo": {
-          "class": "idpyoidc.server.oidc.userinfo.UserInfo",
+          "class": "oidcop.oidc.userinfo.UserInfo",
           "kwargs": {
             "claim_types_supported": [
               "normal",
@@ -221,19 +214,27 @@ OIDCOP_CONF = {
             ],
             "userinfo_encryption_alg_values_supported": [
               "RSA-OAEP",
-              "RSA-OAEP-256"
+              "RSA-OAEP-256",
+              "A192KW",
+              "A256KW",
+              "ECDH-ES",
+              "ECDH-ES+A128KW",
+              "ECDH-ES+A192KW",
+              "ECDH-ES+A256KW"
             ],
             "userinfo_signing_alg_values_supported": [
               "RS256",
               "RS512",
               "ES256",
-              "ES512"
+              "ES512",
+              "PS256",
+              "PS512"
             ]
           },
           "path": "OIDC/userinfo"
         },
         "introspection": {
-          "class": "idpyoidc.server.oauth2.introspection.Introspection",
+          "class": "oidcop.oauth2.introspection.Introspection",
           "kwargs": {
             "client_authn_method": [
               "client_secret_post",
@@ -248,11 +249,11 @@ OIDCOP_CONF = {
           "path": "OIDC/introspection"
         },
         "registration": {
-            "class": "idpyoidc.server.oidc.registration.Registration",
+            "class": "oidcop.oidc.registration.Registration",
             "kwargs": {
               "client_authn_method": None,
               "client_id_generator": {
-                "class": "idpyoidc.server.oidc.registration.random_client_id",
+                "class": "oidcop.oidc.registration.random_client_id",
                 "kwargs": {}
                },
               "client_secret_expiration_time": 432000
@@ -260,7 +261,7 @@ OIDCOP_CONF = {
             "path": "OIDC/registration"
         },
         "registration_read": {
-            "class": "idpyoidc.server.oidc.read_registration.RegistrationRead",
+            "class": "oidcop.oidc.read_registration.RegistrationRead",
             "kwargs": {
               "client_authn_method": [
                "bearer_header"
@@ -294,7 +295,7 @@ OIDCOP_CONF = {
         "uri_path": "OIDC/jwks.json"
       },
       "login_hint2acrs": {
-        "class": "idpyoidc.server.login_hint.LoginHint2Acrs",
+        "class": "oidcop.login_hint.LoginHint2Acrs",
         "kwargs": {
           "scheme_map": {
             "email": [
@@ -308,13 +309,13 @@ OIDCOP_CONF = {
         "salt": "salt involved in session sub hash ",
         "sub_func": {
           "pairwise": {
-            "class": "idpyoidc.server.session.manager.PairWiseID",
+            "class": "oidcop.session.manager.PairWiseID",
             "kwargs": {
               "salt": "CHANGE_ME_OR_LET_IT_BE_RANDOMIC"
             }
           },
           "public": {
-            "class": "idpyoidc.server.session.manager.PublicID",
+            "class": "oidcop.session.manager.PublicID",
             "kwargs": {
               "salt": "CHANGE_ME_OR_LET_IT_BE_RANDOMIC"
             }
@@ -329,11 +330,17 @@ OIDCOP_CONF = {
           }
         },
         "id_token": {
-          "class": "idpyoidc.server.token.id_token.IDToken",
+          "class": "oidcop.token.id_token.IDToken",
           "kwargs": {
             "id_token_encryption_alg_values_supported": [
               "RSA-OAEP",
-              "RSA-OAEP-256"
+              "RSA-OAEP-256",
+              "A192KW",
+              "A256KW",
+              "ECDH-ES",
+              "ECDH-ES+A128KW",
+              "ECDH-ES+A192KW",
+              "ECDH-ES+A256KW"
             ],
             "id_token_encryption_enc_values_supported": [
               "A128CBC-HS256",
@@ -347,17 +354,20 @@ OIDCOP_CONF = {
               "RS256",
               "RS512",
               "ES256",
-              "ES512"
+              "ES512",
+              "PS256",
+              "PS512"
             ]
           }
         },
+        "jwks_file": "data/oidc_op/private/token_jwks.json",
         "refresh": {
           "kwargs": {
             "lifetime": 86400
           }
         },
         "token": {
-          "class": "idpyoidc.server.token.jwt_token.JWTToken",
+          "class": "oidcop.token.jwt_token.JWTToken",
           "kwargs": {
             "lifetime": 3600
           }
@@ -429,7 +439,7 @@ class TestOidcOpFrontend(object):
 
     def clean_inmemory(self, frontend):
         # clean up cdb
-        _ec = frontend.app.server.context
+        _ec = frontend.app.server.server_get("endpoint_context")
         _ec.cdb = {}
         # sman
         frontend._flush_endpoint_context_memory()
@@ -516,6 +526,7 @@ class TestOidcOpFrontend(object):
             frontend.internal_attributes
         ).to_internal("saml", USERS["testuser1"])
         internal_response.subject_id = USERS["testuser1"]["eduPersonTargetedID"][0]
+
         return internal_response
 
     def test_handle_authn_response_authcode_flow(self, context, frontend, authn_req):
@@ -527,7 +538,7 @@ class TestOidcOpFrontend(object):
         _res = urlparse(http_resp.message).query
         resp = AuthorizationResponse().from_urlencoded(_res)
 
-        assert sorted(resp["scope"]) == sorted(authn_req["scope"])
+        assert resp["scope"] == authn_req["scope"]
         assert resp["code"]
         assert frontend.name not in context.state
         # Test Token endpoint
@@ -560,7 +571,6 @@ class TestOidcOpFrontend(object):
         # Test Token endpoint without client ID
         # start new authentication first
         internal_response = self.setup_for_authn_response(context, frontend, authn_req)
-
         http_resp = frontend.handle_authn_response(context, internal_response)
         _res = urlparse(http_resp.message).query
         resp = AuthorizationResponse().from_urlencoded(_res)
@@ -584,15 +594,13 @@ class TestOidcOpFrontend(object):
         context.request_authorization = f"{_token_resp['token_type']} {_access_token[:-2]}"
         userinfo_resp = frontend.userinfo_endpoint(context)
         assert userinfo_resp.status == "403"
-        
+
         # Test UserInfo endpoint
         context.request = {}
         _access_token = _token_resp['access_token']
         context.request_authorization = f"{_token_resp['token_type']} {_access_token}"
-
         userinfo_resp = frontend.userinfo_endpoint(context)
-        
-        # TODO clientId is not in endpoint_context.cdb and it causes UnknownClient exception. Is it possible it is caused by cleanup?
+
         _userinfo_resp = json.loads(userinfo_resp.message)
         assert _userinfo_resp.get("sub")
 
@@ -607,53 +615,6 @@ class TestOidcOpFrontend(object):
         context.request_authorization = _basic_auth
         introspection_resp = frontend.introspection_endpoint(context)
         assert json.loads(introspection_resp.message).get('sub')
-
-    def test_token_endpoint_without_clientid(self, context, frontend, authn_req):
-        self.insert_client_in_client_db(frontend, redirect_uri = authn_req["redirect_uri"])
-        internal_response = self.setup_for_authn_response(context, frontend, authn_req)
-        http_resp = frontend.handle_authn_response(context, internal_response)
-        #  assert http_resp.message.startswith(authn_req["redirect_uri"])
-        #  assert http_resp.status == '303 See Other'
-        _res = urlparse(http_resp.message).query
-        resp = AuthorizationResponse().from_urlencoded(_res)
-
-        #  assert sorted(resp["scope"]) == sorted(authn_req["scope"])
-        #  assert resp["code"]
-        #  assert frontend.name not in context.state
-        # Test Token endpoint
-        context.request = {
-            'grant_type': 'authorization_code',
-            'redirect_uri': CLIENT_RED_URL,
-            'client_id': CLIENT_AUTHN_REQUEST['client_id'],
-            'state': CLIENT_AUTHN_REQUEST['state'],
-            'code': resp["code"],
-        }
-
-        credentials = f"{CLIENT_1_ID}:{CLIENT_1_PASSWD}"
-        basic_auth = urlsafe_b64encode(credentials.encode("utf-8")).decode("utf-8")
-        _basic_auth = f"Basic {basic_auth}"
-        context.request_authorization = _basic_auth
-    
-        # Test Token endpoint without client ID
-        # start new authentication first
-        internal_response = self.setup_for_authn_response(context, frontend, authn_req)
-        
-        http_resp = frontend.handle_authn_response(context, internal_response)
-        _res = urlparse(http_resp.message).query
-        resp = AuthorizationResponse().from_urlencoded(_res)
-        context.request = {
-            'grant_type': 'authorization_code',
-            'redirect_uri': CLIENT_RED_URL,
-            'state': CLIENT_AUTHN_REQUEST['state'],
-            'code': resp["code"],
-        }
-        token_resp = frontend.token_endpoint(context)
-        _token_resp = json.loads(token_resp.message)
-        assert _token_resp.get('access_token')
-        assert _token_resp.get('id_token')
-
-        # cleanup
-        self.clean_inmemory(frontend)
 
     def test_fault_token_endpoint(self, context, frontend):
         # Test Token endpoint
@@ -684,7 +645,7 @@ class TestOidcOpFrontend(object):
         context.request_authorization = f"Basic {basic_auth}"
         token_resp = frontend.token_endpoint(context)
         assert token_resp.status == '403'
-        assert json.loads(token_resp.message)['error'] == 'invalid_request'
+        assert json.loads(token_resp.message)['error'] == 'invalid_grant'
 
     def test_load_cdb_basicauth(self, context, frontend):
         self.insert_client_in_client_db(frontend)
@@ -749,6 +710,7 @@ class TestOidcOpFrontend(object):
         introspection_resp = frontend.introspection_endpoint(context)
         assert json.loads(introspection_resp.message).get('sub')
 
+
     def test_refresh_token(self, context, frontend, authn_req):
         response_type = "code".split(' ')
         scope = ["openid", "offline_access"]
@@ -769,7 +731,7 @@ class TestOidcOpFrontend(object):
         _res = urlparse(http_resp.message).query
         resp = AuthorizationResponse().from_urlencoded(_res)
 
-        assert sorted(resp["scope"]) == sorted(authn_req["scope"])
+        assert resp["scope"] == authn_req["scope"]
         assert resp["code"]
         assert frontend.name not in context.state
 
@@ -807,10 +769,8 @@ class TestOidcOpFrontend(object):
         # Test FAULTY refresh_token
         context.request["refresh_token"] = _res.get('refresh_token')[:-2]
         refresh_resp = frontend.token_endpoint(context)
-        assert refresh_resp.status == "403"
         _res = json.loads(refresh_resp.message)
-        assert _res['error'] == "invalid_grant"
-        assert _res['error_description'] == "Invalid refresh token"
+        assert _res['error'] == "invalid_token"
 
     # def test_private_key_jwt_token_endpoint(self, context, frontend):
         # """
@@ -881,7 +841,7 @@ class TestOidcOpFrontend(object):
         _res = urlparse(http_resp.message).query
         resp = AuthorizationResponse().from_urlencoded(_res)
 
-        assert sorted(resp["scope"]) == sorted(authn_req["scope"])
+        assert resp["scope"] == authn_req["scope"]
         assert resp["code"]
         assert frontend.name not in context.state
 
@@ -902,10 +862,9 @@ class TestOidcOpFrontend(object):
         _basic_auth = f"Basic {basic_auth}"
         context.request_authorization = _basic_auth
 
-        # TODO idpyoidc.server.exception.InvalidBranchID exception is caused cuz 'one!for!all' (user_id) is not found in Database.db (don't know how to put it there)
         token_resp = frontend.token_endpoint(context)
         _token_resp = json.loads(token_resp.message)
-        assert _token_resp.get('error') == "invalid_request"
+        assert _token_resp.get('error') == "invalid_grant"
 
 
     def test_authorization_endpoint_refresh_without_consent(self, context, frontend):
