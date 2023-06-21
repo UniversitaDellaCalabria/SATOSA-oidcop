@@ -4,7 +4,7 @@
 ![Python version](https://img.shields.io/badge/license-Affero%203-blue.svg)
 [![Downloads](https://pepy.tech/badge/satosa-oidcop)](https://pepy.tech/project/satosa-oidcop)
 [![Downloads per week](https://pepy.tech/badge/satosa-oidcop/week)](https://pepy.tech/project/satosa-oidcop)
-![License](https://img.shields.io/badge/python-3.8%20%7C%203.8%20%7C%203.10-blue.svg)
+![License](https://img.shields.io/badge/python-3.8%20%7C%203.8%20%7C%203.11-blue.svg)
 [![Conventional commits](https://img.shields.io/badge/semantic--release-conventional-e10079?logo=semantic-release)](https://conventionalcommits.org/)
 
 SATOSA Frontend based on [identity python oidcop](https://github.com/IdentityPython/oidc-op).
