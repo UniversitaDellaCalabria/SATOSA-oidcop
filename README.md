@@ -1,13 +1,15 @@
 # SATOSA oidcop frontend
 
-![CI build](https://github.com/UniversitaDellaCalabria/satosa-oidcop/workflows/satosa_oidcop/badge.svg)
-![Python version](https://img.shields.io/badge/license-Affero%203-blue.svg)
+[![CI build](https://github.com/UniversitaDellaCalabria/satosa-oidcop/workflows/satosa_oidcop/badge.svg)](https://github.com/UniversitaDellaCalabria/SATOSA-oidcop/actions)
+[![License](https://img.shields.io/pypi/l/satosa_oidcop)](./LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/satosa_oidcop)](https://pypi.org/project/satosa-oidcop/)
 [![Downloads](https://pepy.tech/badge/satosa-oidcop)](https://pepy.tech/project/satosa-oidcop)
 [![Downloads per week](https://pepy.tech/badge/satosa-oidcop/week)](https://pepy.tech/project/satosa-oidcop)
-![License](https://img.shields.io/badge/python-3.8%20%7C%203.8%20%7C%203.11-blue.svg)
+[![Python version](https://img.shields.io/pypi/pyversions/satosa_oidcop)](https://pypi.org/project/satosa-oidcop/)
 [![Conventional commits](https://img.shields.io/badge/semantic--release-conventional-e10079?logo=semantic-release)](https://conventionalcommits.org/)
 
-SATOSA Frontend based on [identity python oidcop](https://github.com/IdentityPython/oidc-op).
+SATOSA Frontend based on [idpyoidc by Identity Python](https://github.com/IdentityPython/idpy-oidc)
+(previously [identity python oidcop](https://github.com/IdentityPython/oidc-op)).
 
 ## Features
 
