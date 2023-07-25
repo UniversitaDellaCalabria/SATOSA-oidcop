@@ -28,7 +28,7 @@
     [
       "@semantic-release/git",
       {
-        "assets": ["setup.cfg"],
+        "assets": ["setup.cfg", "satosa_oidcop/__init__.py"],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ],
