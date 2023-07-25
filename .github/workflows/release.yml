@@ -21,7 +21,7 @@ jobs:
           node-version: "lts/*"
       - name: Install npm dependencies
         run: |
-          npm install semantic-release @semantic-release/commit-analyzer @semantic-release/git @semantic-release/release-notes-generator @semantic-release/github &&
+          npm install semantic-release @semantic-release/commit-analyzer @semantic-release/git @semantic-release/release-notes-generator @semantic-release/github @google/semantic-release-replace-plugin &&
           echo @beepbeepgo:registry=https://gitlab.com/api/v4/packages/npm/ >> .npmrc &&
           npm i @beepbeepgo/semantic-release-python
       - name: Setup Python
