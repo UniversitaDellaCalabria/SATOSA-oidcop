@@ -4,7 +4,7 @@ The OpenID Connect frontend module for the satosa proxy
 import base64
 import logging
 import os
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse, parse_qs
 from datetime import datetime
 
 from cryptojwt.key_jar import KeyJar
@@ -784,7 +784,11 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         )
         if _response_placement == "url":
             data = _args["response_args"].to_dict()
-            redirect_url = info_response + f"?{urlencode(data)}"
+            url_components = urlparse(info_response)
+            original_params = parse_qs(url_components.query)
+            merged_params = {**original_params, **data}
+            updated_query = urlencode(merged_params, doseq=True)
+            redirect_url = url_components._replace(query=updated_query).geturl()
             logger.debug(f"Redirect to: {redirect_url}")
             resp = SeeOther(redirect_url)
         else:  # pragma: no cover
