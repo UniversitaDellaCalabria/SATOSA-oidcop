@@ -133,7 +133,6 @@ OIDCOP_CONF = {
                   "id_token"
                 ]
               },
-              "access_token": {},
               "refresh_token": {
                 "supports_minting": [
                   "access_token",
@@ -584,14 +583,14 @@ class TestOidcOpFrontend(object):
         context.request_authorization = f"{_token_resp['token_type']} {_access_token[:-2]}"
         userinfo_resp = frontend.userinfo_endpoint(context)
         assert userinfo_resp.status == "403"
-        
+
         # Test UserInfo endpoint
         context.request = {}
         _access_token = _token_resp['access_token']
         context.request_authorization = f"{_token_resp['token_type']} {_access_token}"
 
         userinfo_resp = frontend.userinfo_endpoint(context)
-        
+
         # TODO clientId is not in endpoint_context.cdb and it causes UnknownClient exception. Is it possible it is caused by cleanup?
         _userinfo_resp = json.loads(userinfo_resp.message)
         assert _userinfo_resp.get("sub")
@@ -633,11 +632,11 @@ class TestOidcOpFrontend(object):
         basic_auth = urlsafe_b64encode(credentials.encode("utf-8")).decode("utf-8")
         _basic_auth = f"Basic {basic_auth}"
         context.request_authorization = _basic_auth
-    
+
         # Test Token endpoint without client ID
         # start new authentication first
         internal_response = self.setup_for_authn_response(context, frontend, authn_req)
-        
+
         http_resp = frontend.handle_authn_response(context, internal_response)
         _res = urlparse(http_resp.message).query
         resp = AuthorizationResponse().from_urlencoded(_res)

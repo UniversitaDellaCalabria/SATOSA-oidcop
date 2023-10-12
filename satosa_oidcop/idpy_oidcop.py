@@ -4,24 +4,28 @@ The OpenID Connect frontend module for the satosa proxy
 import base64
 import logging
 import os
-from urllib.parse import urlencode, urlparse, parse_qs
-from datetime import datetime
+from urllib.parse import parse_qs
+from urllib.parse import urlencode
+from urllib.parse import urlparse
 
-from cryptojwt.key_jar import KeyJar
+import satosa
 from idpyoidc.message.oauth2 import ResponseMessage
 from idpyoidc.message.oidc import AccessTokenRequest
-from idpyoidc.message.oidc import AuthnToken
 from idpyoidc.message.oidc import AuthorizationErrorResponse
 from idpyoidc.message.oidc import AuthorizationRequest
 from idpyoidc.message.oidc import TokenErrorResponse
 from idpyoidc.server.authn_event import create_authn_event
 from idpyoidc.server.exception import ClientAuthenticationError
-from idpyoidc.server.exception import NoSuchGrant
 from idpyoidc.server.exception import InvalidClient
+from idpyoidc.server.exception import NoSuchGrant
 from idpyoidc.server.exception import UnAuthorizedClient
 from idpyoidc.server.exception import UnknownClient
 from idpyoidc.server.oidc.registration import random_client_id
 from satosa.context import Context
+
+from .core import ExtendedContext
+from .core.persistence import Persistence
+
 try:
     from satosa.context import add_prompt_to_context
 except ImportError:
@@ -37,182 +41,24 @@ from .core.application import oidcop_application as oidcop_app
 from .core.claims import combine_claim_values
 from .core.response import JsonResponse
 
-IGNORED_HEADERS = ["cookie", "user-agent"]
 logger = logging.getLogger(__name__)
 
 
-class ExtendedContext(Context):  # pragma: no cover
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.http_headers = {}
-        self.request_method = ""
-        self.request_uri = ""
-        self.request_authorization = ""
-
-
-class OidcOpUtils(object):
+class OidcOpUtils(Persistence):
     """
     Interoperability class between satosa and oidcop
     """
 
     def __init__(self):  # pragma: no cover
-        self.app = None
-
-    def get_client_info(self, client_id, context):
-        _cinfo = context.cdb.get(client_id)
-        if _cinfo:
-            return _cinfo
-
-        _cinfo = self.app.storage.get_client_by_id(client_id)
-        if _cinfo:
-            context.cdb = {client_id: _cinfo}
-
-        return _cinfo
-
-    def _load_cdb(self, context: ExtendedContext, client_id: str = None) -> dict:
-        """
-        gets client_id from local storage and updates the client DB
-        """
-        if client_id:
-            client_id = client_id
-        elif context.request and isinstance(context.request, dict):
-            client_id = context.request.get("client_id")
-
-        _ec = self.app.server.context
-
-        if client_id:
-            client = self.app.storage.get_client_by_id(client_id)
-        elif "Basic " in getattr(context, "request_authorization", ""):
-            # here even for introspection endpoint
-            client = (
-                    self.app.storage.get_client_by_basic_auth(
-                        context.request_authorization)
-                    or {}
-            )
-            client_id = client.get("client_id")
-        elif context.request and context.request.get(
-                "client_assertion"
-        ):  # pragma: no cover
-            # this is not a validation just a client detection
-            # validation is demanded later to oidcop parse_request
-
-            ####
-            # WARNING: private_key_jwt can't be supported in SATOSA directly to token endpoint
-            # because the user MUST always pass through the authorization endpoint
-            ####
-            token = AuthnToken().from_jwt(
-                txt=context.request["client_assertion"],
-                keyjar=KeyJar(),  # keyless keyjar
-                verify=False,  # otherwise keyjar would contain the issuer key
-            )
-            client_id = token.get("iss")
-            client = self.app.storage.get_client_by_id(client_id)
-            
-        elif "Bearer " in getattr(context, "request_authorization", ""):
-            client = (
-                    self.app.storage.get_client_by_bearer_token(
-                        context.request_authorization)
-                    or {}
-            )
-            client_id = client.get("client_id")
-            
-        else:  # pragma: no cover
-            _ec.cdb = {}
-            _msg = f"Client {client_id} not found!"
-            logger.warning(_msg)
-            raise InvalidClient(_msg)
-
-        if client:
-            _ec.cdb = {client_id: client}
-            logger.debug(
-                f"Loaded oidcop client from {self.app.storage}: {client}")
-        else:  # pragma: no cover
-            logger.info(f'Cannot find "{client_id}" in client DB')
-            raise UnknownClient(client_id)
-
-        # TODO - consider to handle also basic auth for clients ...
-        # BUT specs are against!
-        # https://openid.net/specs/openid-connect-registration-1_0.html#ReadRequest
-        _rat = client.get("registration_access_token")
-        if _rat:
-            _ec.registration_access_token[_rat] = client["client_id"]
-        else:
-            _ec.registration_access_token = {}
-        return client
-
-    def _get_http_headers(self, context: ExtendedContext):
-        """
-        aligns parameters for oidcop interoperability needs
-        """
-        http_headers = {"headers": {}}
-
-        # actually cookies are not used
-        # if getattr(context, 'cookie', None):
-        # for i in context.cookie.split(";"):
-        # splitted = i.split("=")
-        # if len(splitted) > 1:
-        # _cookies.append(
-        # {
-        # "name": splitted[0].strip(),
-        # "value": splitted[1].strip()
-        # }
-        # )
-        # if _cookies:
-        # http_headers["cookie"] = _cookies
-
-        if getattr(context, "http_headers", None):
-            http_headers = {
-                "headers": {
-                    k.lower(): v
-                    for k, v in context.http_headers.items()
-                    if k not in IGNORED_HEADERS
-                },
-                "method": context.request_method,
-                "url": context.request_uri,
-            }
-
-        # for token and userinfo endpoint ... but also for authz endpoint if needed
-        if getattr(context, "request_authorization", None):
-            http_headers["headers"].update(
-                {"authorization": context.request_authorization}
-            )
-        return http_headers
-
-    def store_session_to_db(self, claims=None):
-        sman = self.app.server.context.session_manager
-        self.app.storage.store_session_to_db(sman, claims)
-        logger.debug(f"Stored oidcop session to db: {sman.dump()}")
-
-    def load_session_from_db(self, parse_req, http_headers):
-        sman = self.app.server.context.session_manager
-        claims = self.app.storage.load_session_from_db(
-            parse_req, http_headers, sman)
-        logger.debug(f"Loaded oidcop session from db: {sman.dump()}")
-        
-        return claims
-
-    def _flush_endpoint_context_memory(self):
-        """
-        each OAuth2/OIDC request loads an oidcop session in memory
-        this method will simply free the memory from any loaded session
-        """
-        _ec = self.app.server.context
-        sman = _ec.session_manager
-        sman.flush()
-
-    def _load_session(self, parse_req, endpoint, http_headers):
-        """
-        actions to perform before an endpoint handles a new http request
-        """
-        self._flush_endpoint_context_memory()
-        self.load_session_from_db(parse_req, http_headers)
+        Persistence.__init__(self)
+        self.jwks_public = {}
 
     def _parse_request(
             self, endpoint, context: ExtendedContext, http_headers: dict = None
     ):
         """
         Returns a parsed OAuth2/OIDC request,
-        used by Authorization, Token, Userinfo and Introspection enpoints views
+        used by Authorization, Token, Userinfo and Introspection endpoints views
         """
         http_headers = http_headers or self._get_http_headers(context)
         try:
@@ -244,7 +90,8 @@ class OidcOpUtils(object):
         # do not handle prompt param by oidc-op, handle it here instead
         prompt_arg = parse_req.pop("prompt", None)
         if prompt_arg:
-            add_prompt_to_context(context, " ".join(prompt_arg) if isinstance(prompt_arg, list) else prompt_arg)
+            add_prompt_to_context(context, " ".join(prompt_arg) if isinstance(prompt_arg,
+                                                                              list) else prompt_arg)
 
         # save ACRs
         acr_values = parse_req.pop("acr_values", None)
@@ -287,12 +134,6 @@ class OidcOpUtils(object):
     def send_response(self, response):
         self._flush_endpoint_context_memory()
         return response
-
-    def dump_clients(self):  # pragma: no cover
-        return self.app.server.context.cdb
-
-    def dump_sessions(self):  # pragma: no cover
-        return self.app.server.context.session_manager.dump()
 
 
 class OidcOpEndpoints(OidcOpUtils):
@@ -420,7 +261,7 @@ class OidcOpEndpoints(OidcOpUtils):
 
         # everything depends on bearer access token here
         self._load_session({}, endpoint, http_headers)
-        
+
         # not load the client from the session using the bearer token
         if self.dump_sessions():
             # load cdb from authz bearer token
@@ -504,7 +345,7 @@ class OidcOpEndpoints(OidcOpUtils):
         # That's a patchy runtime definition of userinfo db configuration
         endpoint_context.userinfo.load(claims)
 
-    def registration_read_endpoint(self, context: Context):
+    def registration_read_endpoint(self, context: ExtendedContext):
         """
         The Client Configuration Endpoint is an OAuth 2.0 Protected Resource
         that MAY be provisioned by the server for a specific Client to be able
@@ -532,7 +373,7 @@ class OidcOpEndpoints(OidcOpUtils):
         response = JsonResponse(proc_req["response_args"].to_dict())
         return self.send_response(response)
 
-    def registration_endpoint(self, context: Context):
+    def registration_endpoint(self, context: ExtendedContext):
         """
         Handle the OIDC dynamic client registration.
         :type context: satosa.context.Context
@@ -558,7 +399,7 @@ class OidcOpEndpoints(OidcOpUtils):
         self.app.storage.insert_client(client_data)
         return JsonResponse(client_data)
 
-    def introspection_endpoint(self, context: Context):
+    def introspection_endpoint(self, context: ExtendedContext):
         self._log_request(context, "Token Introspection endpoint request")
         endpoint = self.app.server.endpoint["introspection"]
         http_headers = self._get_http_headers(context)
@@ -819,7 +660,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         self.store_session_to_db(claims=combined_claims)
         return self.send_response(response)
 
-    def handle_backend_error(self, exception):
+    def handle_backend_error(self, exception: Exception):
         """
         See super class satosa.frontends.base.FrontendModule
         :type exception: satosa.exception.SATOSAError
