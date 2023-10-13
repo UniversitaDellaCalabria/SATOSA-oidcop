@@ -28,7 +28,7 @@ Endpoints:
 ## Requirements
 
 - satosa
-- mongodb, see [Satosa-Saml2Spid mongo example](https://github.com/italia/Satosa-Saml2Spid/tree/master/mongo).
+- mongodb, see [Satosa-Saml2Spid mongo example](https://github.com/italia/Satosa-Saml2Spid/blob/master/README.mongo.md).
 
 ## Setup
 
