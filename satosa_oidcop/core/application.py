@@ -27,5 +27,5 @@ def oidcop_application(conf: dict):
     app.salt_size = conf.get("salt_size", 8)
 
     _strg = conf["storage"]
-    app.storage = importer(_strg["class"])(_strg, **_strg["kwargs"])
+    app.storage = importer(_strg["class"])(**_strg["kwargs"])
     return app

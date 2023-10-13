@@ -4,6 +4,7 @@ The OpenID Connect frontend module for the satosa proxy
 import base64
 import logging
 import os
+from typing import Optional
 from urllib.parse import parse_qs
 from urllib.parse import urlencode
 from urllib.parse import urlparse
@@ -170,6 +171,54 @@ class OidcOpEndpoints(OidcOpUtils):
 
         info = endpoint.do_response(request=context.request, **proc_req)
         return JsonResponse(info["response"])
+
+    def _load_cdb(self, context: ExtendedContext, client_id: Optional[str] = None) -> dict:
+        """
+        gets client_id from local storage and updates the client DB
+        """
+        _ec = self.app.server.context
+
+        if client_id:
+            client_id = client_id
+        elif context.request and isinstance(context.request, dict):
+            client_id = context.request.get("client_id")
+        else:
+            _http_info = self._get_http_headers(context)
+            client_id = self._get_client_id(_ec.session_manager, context.request, _http_info)
+
+        client_info = {}
+        if client_id:
+            client_info = self.app.storage.fetch("client_info", client_id)
+        else:
+            _msg = f"Could not find a client_id!"
+            logger.warning(_msg)
+            raise InvalidClient(_msg)
+
+        if not client_info:  # pragma: no cover
+            _ec.cdb = {}
+            _msg = f"Client {client_id} not found!"
+            logger.warning(_msg)
+            raise InvalidClient(_msg)
+
+        if client_info:
+            _ec.cdb = {client_id: client_info}
+            logger.debug(
+                f"Loaded oidcop client from {self.app.storage}: {client_info}")
+        else:  # pragma: no cover
+            logger.info(f'Cannot find "{client_id}" in client DB')
+            raise UnknownClient(client_id)
+
+        return client_info
+
+    def _load_session(self, parse_req, endpoint, http_headers):
+        """
+        actions to perform before an endpoint handles a new http request
+        """
+        self._flush_endpoint_context_memory()
+        _ec = self.app.server.context
+        client_id = self._get_client_id(_ec.session_manager, parse_req,
+                                        {"headers": http_headers})
+        self.app.storage.fetch("client_info", client_id)
 
     def authorization_endpoint(self, context: ExtendedContext):
         """
@@ -580,7 +629,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         _token_usage_rules = _ec.authn_broker.get_method_by_id("user")
 
         session_manager = _ec.session_manager
-        client = self.app.storage.get_client_by_id(client_id)
+        client = self.app.storage.fetch("client_info", client_id)
         client_subject_type = client.get("subject_type", "public")
         _session_id = session_manager.create_session(
             authn_event=authn_event,
@@ -657,7 +706,9 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         del context.state[self.name]
 
         # store oidc session with user claims
-        self.store_session_to_db(claims=combined_claims)
+        client_id= context.request.get("client_id")
+        self.store_state(client_id)
+        self.store_claims(combined_claims, client_id)
         return self.send_response(response)
 
     def handle_backend_error(self, exception: Exception):

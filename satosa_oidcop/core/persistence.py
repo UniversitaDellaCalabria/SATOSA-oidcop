@@ -147,7 +147,6 @@ class Persistence(object):
         _session_state["db"] = {}
         self.app.storage.store(information_type="session_info", value=_session_state)
 
-    # not sure I'll need this
     def _get_http_headers(self, context: ExtendedContext):
         """
         aligns parameters for oidcop interoperability needs

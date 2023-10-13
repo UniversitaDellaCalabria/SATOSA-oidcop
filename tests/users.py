@@ -1,8 +1,7 @@
 """
 A static dictionary with SAML testusers that can be used as response.
 """
-
-from satosa.frontends.openid_connect import combine_claim_values
+from satosa_oidcop.core.claims import combine_claim_values
 
 USERS = {
     "testuser1": {
