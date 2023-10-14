@@ -7,9 +7,12 @@ from urllib.parse import urlparse
 
 import pytest
 from cryptojwt.jwk.jwk import key_from_jwk_dict
+from cryptojwt.jwt import utc_time_sans_frac
 from idpyoidc.message.oidc import AuthorizationRequest
 from idpyoidc.message.oidc import AuthorizationResponse
 from idpyoidc.message.oidc import RegistrationRequest
+from idpyoidc.server.authn_event import create_authn_event
+from idpyoidc.server.user_authn.authn_context import INTERNETPROTOCOLPASSWORD
 from satosa.attribute_mapping import AttributeMapper
 from satosa.context import Context
 from satosa.internal import AuthenticationInformation
@@ -408,9 +411,8 @@ class TestOidcOpFrontend(object):
         return frontend
 
     def clean_inmemory(self, frontend):
-        # clean up cdb
-        _ec = frontend.app.server.context
-        _ec.cdb = {}
+        # reset cdb
+        frontend.app.server.context.cdb = {}
         # sman
         frontend._flush_endpoint_context_memory()
 
@@ -493,9 +495,8 @@ class TestOidcOpFrontend(object):
             "unittest_idp.xml"
         )
         internal_response = InternalData(auth_info=auth_info)
-        internal_response.attributes = AttributeMapper(
-            frontend.internal_attributes
-        ).to_internal("saml", USERS["testuser1"])
+        internal_response.attributes = AttributeMapper(frontend.internal_attributes).to_internal(
+            "saml", USERS["testuser1"])
         internal_response.subject_id = USERS["testuser1"]["eduPersonTargetedID"][0]
         return internal_response
 
@@ -567,16 +568,12 @@ class TestOidcOpFrontend(object):
         userinfo_resp = frontend.userinfo_endpoint(context)
         assert userinfo_resp.status == "403"
 
-        # Test UserInfo endpoint
+        # Test UserInfo endpoint. Session info loaded automatically
         context.request = {}
         _access_token = _token_resp['access_token']
         context.request_authorization = f"{_token_resp['token_type']} {_access_token}"
-
         userinfo_resp = frontend.userinfo_endpoint(context)
-
-        # TODO clientId is not in endpoint_context.cdb and it causes UnknownClient exception. Is it possible it is caused by cleanup?
-        _userinfo_resp = json.loads(userinfo_resp.message)
-        assert _userinfo_resp.get("sub")
+        assert userinfo_resp.status == "200 OK"
 
         # cleanup
         self.clean_inmemory(frontend)
@@ -593,6 +590,7 @@ class TestOidcOpFrontend(object):
     def test_token_endpoint_without_clientid(self, context, frontend, authn_req):
         self.insert_client_in_client_db(frontend, redirect_uri=authn_req["redirect_uri"])
         internal_response = self.setup_for_authn_response(context, frontend, authn_req)
+        context.request = authn_req
         http_resp = frontend.handle_authn_response(context, internal_response)
         #  assert http_resp.message.startswith(authn_req["redirect_uri"])
         #  assert http_resp.status == '303 See Other'
@@ -666,17 +664,19 @@ class TestOidcOpFrontend(object):
         context.request_authorization = f"Basic {basic_auth}"
         token_resp = frontend.token_endpoint(context)
         assert token_resp.status == '403'
-        assert json.loads(token_resp.message)['error'] == 'invalid_request'
+        assert json.loads(token_resp.message)['error'] == 'invalid_grant'
 
-    def test_load_cdb_basicauth(self, context, frontend):
+    def test_load_cdb_basicauth(self, context, frontend, authn_req):
         self.insert_client_in_client_db(frontend)
         credentials = f"{CLIENT_1_ID}:{CLIENT_1_PASSWD}"
         basic_auth = urlsafe_b64encode(credentials.encode("utf-8")).decode("utf-8")
-        context.request_authorization = f"Basic {basic_auth}"
-        client = frontend._load_cdb(context)
-        assert client
+        context.request = authn_req
+        _authorization = f"Basic {basic_auth}"
+        http_info = {"headers": {"authorization": _authorization}}
+        client_id = frontend.update_state(context.request, http_info)
+        assert client_id
 
-    def test_handle_authn_response_hibrid_flow(self, context, frontend, authn_req):
+    def test_handle_authn_response_hybrid_flow(self, context, frontend, authn_req):
         response_type = "code id_token token".split(' ')
         self.insert_client_in_client_db(
             frontend,
@@ -684,6 +684,7 @@ class TestOidcOpFrontend(object):
             redirect_uri=authn_req["redirect_uri"],
         )
         authn_req['response_type'] = response_type
+        context.request = authn_req
         internal_response = self.setup_for_authn_response(context, frontend, authn_req)
         http_resp = frontend.handle_authn_response(context, internal_response)
 
@@ -700,6 +701,7 @@ class TestOidcOpFrontend(object):
             redirect_uri=authn_req["redirect_uri"],
         )
         authn_req['response_type'] = response_type
+        context.request = authn_req
         internal_response = self.setup_for_authn_response(context, frontend, authn_req)
         http_resp = frontend.handle_authn_response(context, internal_response)
 
@@ -839,6 +841,7 @@ class TestOidcOpFrontend(object):
         _bearer_auth = f"Bearer {CLIENT_1_RAT}"
         context.request_authorization = _bearer_auth
         context.request = {'client_id': CLIENT_1_ID}
+        frontend.app.server.context.registration_access_token[CLIENT_1_RAT] = CLIENT_1_ID
         http_resp = frontend.registration_read_endpoint(context)
         _resp = json.loads(http_resp.message)
         assert _resp['client_id'] == CLIENT_1_ID
@@ -866,7 +869,7 @@ class TestOidcOpFrontend(object):
         assert resp["code"]
         assert frontend.name not in context.state
 
-        # imagine that client2 steals the auth code and uses it to Token endpoint
+        # imagine that client2 steals the auth code and uses it at the Token endpoint
         context.request = {
             'grant_type': 'authorization_code',
             'redirect_uri': CLIENT_RED_URL,
@@ -882,10 +885,11 @@ class TestOidcOpFrontend(object):
         _basic_auth = f"Basic {basic_auth}"
         context.request_authorization = _basic_auth
 
-        # TODO idpyoidc.server.exception.InvalidBranchID exception is caused cuz 'one!for!all' (user_id) is not found in Database.db (don't know how to put it there)
+        # TODO idpyoidc.server.exception.InvalidBranchID exception is caused cuz 'one!for!all'
+        # (user_id) is not found in Database.db because it os not a client_2 session.
         token_resp = frontend.token_endpoint(context)
         _token_resp = json.loads(token_resp.message)
-        assert _token_resp.get('error') == "invalid_request"
+        assert _token_resp.get('error') == "unauthorized_client"
 
     def test_authorization_endpoint_refresh_without_consent(self, context, frontend):
         authn_req = self.get_authn_req(**{"prompt": "none"})

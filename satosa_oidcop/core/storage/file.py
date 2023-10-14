@@ -25,3 +25,7 @@ class FilesystemDB(AbstractFileSystem):
             self[":".join([information_type, key])] = value
         else:
             self[information_type] = value
+
+    def information_type_keys(self, information_type: str):
+        return [k[len(information_type) + 1:] for k in (self.keys()) if
+                k.startswith(information_type)]
