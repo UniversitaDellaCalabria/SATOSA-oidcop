@@ -2,17 +2,17 @@ import copy
 import datetime
 import json
 from base64 import urlsafe_b64encode
+from urllib.parse import parse_qs
 from urllib.parse import parse_qsl
 from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 import pytest
 from cryptojwt.jwk.jwk import key_from_jwk_dict
-from cryptojwt.jwt import utc_time_sans_frac
+from cryptojwt.jws.jws import factory
 from idpyoidc.message.oidc import AuthorizationRequest
 from idpyoidc.message.oidc import AuthorizationResponse
 from idpyoidc.message.oidc import RegistrationRequest
-from idpyoidc.server.authn_event import create_authn_event
-from idpyoidc.server.user_authn.authn_context import INTERNETPROTOCOLPASSWORD
 from satosa.attribute_mapping import AttributeMapper
 from satosa.context import Context
 from satosa.internal import AuthenticationInformation
@@ -28,7 +28,7 @@ CLIENT_RED_URL = 'https://127.0.0.1:8090/authz_cb/satosa'
 CLIENT_1_SESLOGOUT = 'https://127.0.0.1:8090/session_logout/satosa'
 
 # unused
-CLIENT_JWK_DICT = {'keys': [{'kty': 'RSA',
+CLIENT_JWKS_DICT = {'keys': [{'kty': 'RSA',
                              'use': 'sig',
                              'kid': 'OWIzN25HNmY0d0VTNWtMeEstTFU3endZbm9ucjhwTVhfLUdwajU1QS1NMA',
                              'n': 'ytqcNOfMII7NT1n4AhG8nWBvNuJ7gfBXdOjde-iPIy0OiXj6CeuXZXdaUsWeUElG3yw03IRyGs6Q1sh1_b3kFTjrfMhj7nX50ZWucZJCO0MLtsPqOfjKCiyOJjb4rSDhDrM2PxNJ_eXEuFzUVB5CPCK2GvKzPBZJvtYmGDnaf0CDH2XcWfUeyrFip2zvJ4wrrb4l-hqngPLhAyNaV3QtzbbXJtQTNPlHYghC_prVj18onHsC68fxQg7OfHmPQq9DVZs24rAb6rqxI0PJwSVbUA89gGjuytQAQEFKzR4AR9bfhZBj6H3X5sOcFg8xg-iOBmQxx7vM_5Dxu1sTIvykFQ',
@@ -45,7 +45,7 @@ CLIENT_JWK_DICT = {'keys': [{'kty': 'RSA',
                              'd': 'd2SBLs_LZIxt2U_sdcjTCLLoMYWli_HYkZ0YIDe2SvE'}]
                    }
 # unused
-CLIENT_RSA_KEY = key_from_jwk_dict(CLIENT_JWK_DICT['keys'][0])
+CLIENT_RSA_KEY = key_from_jwk_dict(CLIENT_JWKS_DICT['keys'][0])
 
 CLIENT_CONF = {
     'client_id': CLIENT_1_ID,
@@ -392,6 +392,7 @@ msg = {
         "https://rp.example.com/pl?foo=bar",
         "https://rp.example.com/pl",
     ],
+    "jwks": CLIENT_JWKS_DICT
 }
 
 CLI_REQ = RegistrationRequest(**msg)
@@ -796,45 +797,42 @@ class TestOidcOpFrontend(object):
         assert _res['error'] == "invalid_grant"
         assert _res['error_description'] == "Invalid refresh token"
 
-    # def test_private_key_jwt_token_endpoint(self, context, frontend):
-    # """
-    # Unused because we cannot have private_key_jwt/RFC7523 in satosa
-    # client/rp is a machine, while auth code flow needs an human user
-
-    # in satosa the user MUST call the authorization endpoint
-    # """
-    # client_assertion_data = {
-    # "iss": CLIENT_1_ID,
-    # "sub": CLIENT_1_ID,
-    # "aud": [f"{BASE_URL}/OIDC/token"],
-    # "jti": "my-opaque-jti-value",
-    # "exp": (datetime.datetime.now() + datetime.timedelta(days=1)).timestamp(),
-    # "iat": datetime.datetime.now().timestamp()
-
-    # }
-    # _private_key_jwt = AuthnToken(**client_assertion_data)
-    # client_assertion = _private_key_jwt.to_jwt(key=[CLIENT_RSA_KEY], algorithm='RS256')
-
-    # ## Test Token endpoint
-    # context.request = {
-    # 'grant_type': 'authorization_code',
-    # 'redirect_uri': CLIENT_RED_URL,
-    # 'state': CLIENT_AUTHN_REQUEST['state'],
-    # 'code': "FAKE-CODE",
-    # "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
-    # "client_assertion": client_assertion
-    # }
-    # self.insert_client_in_client_db(frontend)
-    # token_resp = frontend.token_endpoint(context)
-    # breakpoint()
-
     def test_client_registration_endpoint(self, context, frontend, authn_req):
-        # just to test reserved client_id
-        self.insert_client_in_client_db(frontend)
         context.request = CLI_REQ.to_dict()
         http_resp = frontend.registration_endpoint(context)
         _resp = json.loads(http_resp.message)
-        assert _resp['client_id']
+
+        # Authz request
+        authn_req['response_type'] = "code"
+        authn_req['scope'] = ["openid", "offline_access"]
+        authn_req["client_id"] = _resp["client_id"]
+        authn_req["redirect_uri"] = _resp["redirect_uris"][0]
+        internal_response = self.setup_for_authn_response(context, frontend, authn_req)
+        http_resp = frontend.handle_authn_response(context, internal_response)
+        assert http_resp
+
+        part = urlsplit(http_resp.message)
+        _response = parse_qs(part.query)
+        # Token request
+        context.request = {
+            'grant_type': 'authorization_code',
+            'redirect_uri': _resp["redirect_uris"][0],
+            'client_id': _resp["client_id"],
+            'state': authn_req['state'],
+            'code': _response["code"][0],
+            # TODO
+            # 'code_verifier': 'ySfTlMpTEZPYU7H0XQZ75b3B568R5kkMkGRuRpQHOr1KNC9oimGnWygexLJuTyyT'
+        }
+
+        credentials = f"{_resp['client_id']}:{_resp['client_secret']}"
+        basic_auth = urlsafe_b64encode(credentials.encode("utf-8")).decode("utf-8")
+        _basic_auth = f"Basic {basic_auth}"
+        context.request_authorization = _basic_auth
+
+        token_resp = frontend.token_endpoint(context)
+        res = json.loads(token_resp.message)
+        _jws = factory(res["access_token"])
+        assert frontend.app.server.context.keyjar.get_signing_key(kid=_jws.jwt.headers["kid"])
 
     def test_client_registration_read_endpoint(self, context, frontend, authn_req):
         self.insert_client_in_client_db(frontend)

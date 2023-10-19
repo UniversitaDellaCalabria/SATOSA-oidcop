@@ -22,7 +22,6 @@ from idpyoidc.server.exception import InvalidClient
 from idpyoidc.server.exception import NoSuchGrant
 from idpyoidc.server.exception import UnAuthorizedClient
 from idpyoidc.server.exception import UnknownClient
-from idpyoidc.server.oidc.registration import random_client_id
 from satosa.context import Context
 
 from .core import ExtendedContext
@@ -80,7 +79,7 @@ class OidcOpUtils(Persistence):
             return self.send_response(response)
         return parse_req
 
-    def _process_request(self, endpoint, context: Context, parse_req, http_info):
+    def _process_request(self, endpoint, context: Context, parse_req, http_info, **kwargs):
         """
         Processes an OAuth2/OIDC request
         used by Authorization, Token, Userinfo and Introspection enpoints views
@@ -102,8 +101,9 @@ class OidcOpUtils(Persistence):
             context.state[Context.KEY_AUTHN_CONTEXT_CLASS_REF] = acr_values
 
         try:
+            reserved = kwargs.get("reserved")
             proc_req = endpoint.process_request(
-                parse_req, http_info=http_info)
+                parse_req, http_info=http_info, reserved=reserved)
             return proc_req
         except Exception as err:  # pragma: no cover
             logger.error(
@@ -191,7 +191,7 @@ class OidcOpEndpoints(OidcOpUtils):
 
         client_info = {}
         if client_id:
-            client_info = self.app.storage.fetch("client_info", client_id)
+            client_info = self._get_client_info(client_id, _ec)
         else:
             _msg = f"Could not find a client_id!"
             logger.warning(_msg)
@@ -255,7 +255,7 @@ class OidcOpEndpoints(OidcOpUtils):
         raw_request = AccessTokenRequest().from_urlencoded(urlencode(context.request))
 
         try:
-            self.update_state(raw_request, http_info)
+            client_id = self.update_state(raw_request, http_info)
         except UnknownClient:
             return self.send_response(
                 JsonResponse(
@@ -275,7 +275,6 @@ class OidcOpEndpoints(OidcOpUtils):
             )
             return self.send_response(_response)
 
-        # in token endpoint we cannot parse a request without having loaded cdb and session first
         parse_req = self._parse_request(endpoint, context, http_info=http_info)
 
         ec = endpoint.upstream_get("context")
@@ -298,8 +297,8 @@ class OidcOpEndpoints(OidcOpUtils):
             )
         # end PATCH
 
-        _client_id = self._get_client_id(ec, raw_request, http_info)
-        self.store_state(_client_id)
+        # _client_id = self._get_client_id(ec, raw_request, http_info)
+        self.store_state(client_id)
         # better return jwt or jwe here!
         response = JsonResponse(proc_req["response_args"])
 
@@ -309,7 +308,6 @@ class OidcOpEndpoints(OidcOpUtils):
         self._log_request(context, "Userinfo endpoint request")
         endpoint = self.app.server.endpoint["userinfo"]
         http_info = self._get_http_info(context)
-
 
         ec = endpoint.upstream_get("context")
         try:
@@ -428,16 +426,22 @@ class OidcOpEndpoints(OidcOpUtils):
         endpoint = self.app.server.endpoint["registration"]
         parse_req = self._parse_request(
             endpoint, context, http_info=http_info)
+        reserved = self.app.storage.information_type_keys('client_info')
         proc_req = self._process_request(
-            endpoint, context, parse_req, http_info)
+            endpoint, context, parse_req, http_info, reserved=reserved)
         if isinstance(proc_req, JsonResponse):  # pragma: no cover
             return self.send_response(proc_req)
-        # store client to storage
-        client_data = context.request
-        reserved = self.app.storage.information_type_keys('client_info')
-        client_data["client_id"] = random_client_id(reserved=reserved)
-        self.app.storage.store("client_info", value=client_data, key=client_data["client_id"])
-        return JsonResponse(client_data)
+        client_data = proc_req["response_args"]
+        _response = client_data.to_dict()
+        if "jwks" not in client_data and "jwks_uri" in client_data:
+            client_data["_jwks"] = self.app.server.context.keyjar.export_jwks(
+                issuer=client_data["client_id"])
+
+        # store client metadata in storage
+        self.app.storage.store("client_info", value=_response, key=client_data["client_id"])
+
+        return JsonResponse(status=str(proc_req["response_code"]),
+                            message=_response)
 
     def introspection_endpoint(self, context: ExtendedContext):
         self._log_request(context, "Token Introspection endpoint request")
@@ -599,8 +603,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
 
         # not using self._parse_request cause of "Missing required attribute 'response_type'"
         parse_req = AuthorizationRequest().from_urlencoded(urlencode(oidc_req))
-        # not really needed here ... because nothing have been dumped before
-        # self._load_session(parse_req, endpoint, http_info)
+
         proc_req = self._process_request(
             endpoint, context, parse_req, http_info)
 
@@ -621,7 +624,7 @@ class OidcOpFrontend(FrontendModule, OidcOpEndpoints):
         _token_usage_rules = _ec.authn_broker.get_method_by_id("user")
 
         session_manager = _ec.session_manager
-        client = self.app.storage.fetch("client_info", client_id)
+        client = self._get_client_info(client_id, _ec)
         client_subject_type = client.get("subject_type", "public")
         _session_id = session_manager.create_session(
             authn_event=authn_event,

@@ -6,6 +6,7 @@ from typing import Union
 from cryptojwt import JWT
 from cryptojwt.exception import BadSignature
 from cryptojwt.exception import Invalid
+from cryptojwt.exception import IssuerNotFound
 from cryptojwt.exception import MissingKey
 from cryptojwt.utils import as_bytes
 from idpyoidc.message import Message
@@ -88,6 +89,27 @@ class Persistence(object):
 
         return None
 
+    def _get_client_info(self, client_id, endpoint_context) -> dict:
+        client_info = self.app.storage.fetch("client_info", client_id)
+        if not client_info:
+            return {}
+
+        try:
+            keys = endpoint_context.keyjar.get_issuer_keys(client_info["client_id"])
+        except IssuerNotFound:
+            if "jwks" in client_info:
+                endpoint_context.keyjar.import_jwks(client_info["jwks"], client_info["client_id"])
+            elif "_jwks" in client_info:
+                endpoint_context.keyjar.import_jwks(client_info["_jwks"], client_info["client_id"])
+            elif "jwks_uri" in client_info:
+                endpoint_context.keyjar.add_url(client_info["client_id"], client_info["jwks_uri"])
+        else:
+            # TODO
+            # here I should check that the keys in the key jar matches the keys in the client info
+            pass
+
+        return client_info
+
     def update_state(self,
                      request: Union[Message, dict],
                      http_info: Optional[dict]) -> str:
@@ -111,10 +133,13 @@ class Persistence(object):
             self._flush_endpoint_context_memory(sman)
             sman.load(_session_info)
 
-        # Update client database
-        client_info = self.app.storage.fetch(information_type="client_info", key=client_id)
-        self.app.server.context.cdb = {client_id: client_info}
-        return client_id
+        # Update local client database
+        client_info = self._get_client_info(client_id, endpoint_context)
+        if client_info:
+            self.app.server.context.cdb = {client_id: client_info}
+            return client_id
+        else:
+            return ""
 
     def _hash_session_id(self, session_id):
         return hashlib.sha256(as_bytes(session_id)).hexdigest()
