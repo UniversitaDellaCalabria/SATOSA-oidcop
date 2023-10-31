@@ -3,6 +3,7 @@ import copy
 import datetime
 import json
 import logging
+import hmac
 
 from idpyoidc.server.exception import NoSuchGrant
 import pymongo
@@ -203,9 +204,10 @@ class Mongodb(SatosaOidcStorage):
             client_secret = cred[1]
 
             self._connect()
-            return self.client_db.find_one(
-                {"client_id": client_id, "client_secret": client_secret}
+            client = self.client_db.find_one(
+                {"client_id": client_id}
             )
+            return client if "client_secret" in client and hmac.compare_digest(client["client_secret"], client_secret) else None
 
     def get_client_by_bearer_token(self, request_authorization: str):
         access_token = request_authorization.replace("Bearer ", "")
