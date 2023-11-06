@@ -179,8 +179,21 @@ config:
               email:
               - urn:oasis:names:tc:SAML:2.0:ac:classes:InternetProtocolPassword
         session_params:
-          password: CHANGE_ME__password_used_to_encrypt_access_token_sid_value
-          salt: 'CHANGE_ME salt involved in session sub hash'
+          encrypter:
+            class: cryptojwt.jwe.fernet.FernetEncrypter
+            kwargs:
+              password: CHANGE_ME__password_used_to_encrypt_access_token_sid_value
+              salt: 'CHANGE_ME salt involved in session sub hash'
+              keys:
+                key_defs:
+                  - type: OCT
+                    use:
+                      - enc
+                    kid: password
+                  - type: OCT
+                    use:
+                      - enc
+                    kid: salt
           sub_func:
             pairwise:
               class: idpyoidc.server.session.manager.PairWiseID
@@ -195,6 +208,20 @@ config:
           code:
             kwargs:
               lifetime: 600
+              crypt_conf:
+                kwargs:
+                  password: CHANGE_ME__password_used_to_encrypt_authorization_code
+                  salt: 'CHANGE_ME salt involved in authorization code hash'
+                  keys:
+                    key_defs:
+                      - type: OCT
+                        use:
+                          - enc
+                        kid: password
+                      - type: OCT
+                        use:
+                          - enc
+                        kid: salt
           id_token:
             class: idpyoidc.server.token.id_token.IDToken
             kwargs:
