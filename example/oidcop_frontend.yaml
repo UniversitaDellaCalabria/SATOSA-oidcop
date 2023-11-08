@@ -257,6 +257,20 @@ config:
           refresh:
             kwargs:
               lifetime: 86400
+              crypt_conf:
+                kwargs:
+                  password: CHANGE_ME__password_used_to_encrypt_refresh_tokens
+                  salt: 'CHANGE_ME salt involved in refresh token hash'
+                  keys:
+                    key_defs:
+                      - type: OCT
+                        use:
+                          - enc
+                        kid: password
+                      - type: OCT
+                        use:
+                          - enc
+                        kid: salt
           token:
             class: idpyoidc.server.token.jwt_token.JWTToken
             kwargs:
