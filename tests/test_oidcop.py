@@ -583,7 +583,7 @@ class TestOidcOpFrontend(object):
         _access_token = _token_resp['access_token']
         context.request_authorization = f"{_token_resp['token_type']} {_access_token[:-2]}"
         userinfo_resp = frontend.userinfo_endpoint(context)
-        assert userinfo_resp.status == "403"
+        assert userinfo_resp.status == "403 Forbidden"
         
         # Test UserInfo endpoint
         context.request = {}
@@ -683,7 +683,7 @@ class TestOidcOpFrontend(object):
         basic_auth = urlsafe_b64encode(credentials.encode("utf-8")).decode("utf-8")
         context.request_authorization = f"Basic {basic_auth}"
         token_resp = frontend.token_endpoint(context)
-        assert token_resp.status == '403'
+        assert token_resp.status == '403 Forbidden'
         assert json.loads(token_resp.message)['error'] == 'invalid_request'
 
     def test_load_cdb_basicauth(self, context, frontend):
@@ -807,7 +807,7 @@ class TestOidcOpFrontend(object):
         # Test FAULTY refresh_token
         context.request["refresh_token"] = _res.get('refresh_token')[:-2]
         refresh_resp = frontend.token_endpoint(context)
-        assert refresh_resp.status == "403"
+        assert refresh_resp.status == "403 Forbidden"
         _res = json.loads(refresh_resp.message)
         assert _res['error'] == "invalid_grant"
         assert _res['error_description'] == "Invalid refresh token"
