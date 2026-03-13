@@ -38,6 +38,36 @@ pip install satosa_oidcop
 
 ## Configuration
 
+### Environment variables (!ENV)
+
+The frontend YAML config supports `!ENV` and `!ENVFILE` tags (via SATOSA's YAML loader),
+consistent with pyeudiw and other SATOSA backends/frontends. Use them for sensitive
+or deployment-specific values:
+
+```yaml
+config:
+  domain: !ENV SATOSA_HOSTNAME
+  storage:
+    kwargs:
+      url: !ENV MONGO_OIDCOP_HOST
+      connection_params:
+        username: !ENV MONGODB_OIDCOP_USERNAME
+        password: !ENV MONGODB_OIDCOP_PASSWORD
+  op:
+    server_info:
+      session_params:
+        encrypter:
+          kwargs:
+            password: !ENV SATOSA_ENCRYPTION_KEY
+            salt: !ENV SATOSA_SALT
+```
+
+Required env vars for the [example config](example/oidcop_frontend.yaml):
+`SATOSA_HOSTNAME`, `MONGO_OIDCOP_HOST`, `MONGODB_OIDCOP_USERNAME`, `MONGODB_OIDCOP_PASSWORD`,
+`SATOSA_ENCRYPTION_KEY`, `SATOSA_SALT`.
+
+### Configuration structure
+
 Anyone can migrate its oidcop configuration, from flask_op or django-oidc-op
 or whatever, in SATOSA and without any particular efforts. Looking at the
 [example configuration](example/oidcop_frontend.yaml) we see that

@@ -1,18 +1,22 @@
+# SATOSA-oidcop frontend configuration
+# Supports !ENV and !ENVFILE YAML tags (via SATOSA's YAML loader) for environment-based config.
+# Required env vars: SATOSA_HOSTNAME, MONGO_OIDCOP_HOST, MONGODB_OIDCOP_USERNAME, MONGODB_OIDCOP_PASSWORD,
+#                    SATOSA_ENCRYPTION_KEY, SATOSA_SALT
 module: satosa_oidcop.idpy_oidcop.OidcOpFrontend
 name: OIDC
 
 config:
-  domain: &domain localhost
+  domain: &domain !ENV SATOSA_HOSTNAME
   server_name: *domain
   base_url: &base_url <base_url>
 
   storage:
     class: "satosa_oidcop.core.storage.mongo.Mongodb"
     kwargs:
-      url: mongodb://satosa-mongo:27017/oidcop
+      url: !ENV MONGO_OIDCOP_HOST
       connection_params:
-        username: satosa
-        password: thatpassword
+        username: !ENV MONGODB_OIDCOP_USERNAME
+        password: !ENV MONGODB_OIDCOP_PASSWORD
         connectTimeoutMS: 5000
         socketTimeoutMS: 5000
         serverSelectionTimeoutMS: 5000
@@ -182,8 +186,8 @@ config:
         encrypter:
           class: cryptojwt.jwe.fernet.FernetEncrypter
           kwargs:
-            password: CHANGE_ME__password_used_to_encrypt_access_token_sid_value
-            salt: "CHANGE_ME salt involved in session sub hash"
+            password: !ENV SATOSA_ENCRYPTION_KEY
+            salt: !ENV SATOSA_SALT
             keys:
               key_defs:
                 - type: OCT
@@ -198,11 +202,11 @@ config:
           pairwise:
             class: idpyoidc.server.session.manager.PairWiseID
             kwargs:
-              salt: CHANGE_ME_OR_LET_IT_BE_RANDOMIC
+              salt: !ENV SATOSA_SALT
           public:
             class: idpyoidc.server.session.manager.PublicID
             kwargs:
-              salt: CHANGE_ME_OR_LET_IT_BE_RANDOMIC
+              salt: !ENV SATOSA_SALT
       template_dir: templates
       token_handler_args:
         code:
@@ -210,8 +214,8 @@ config:
             lifetime: 600
             crypt_conf:
               kwargs:
-                password: CHANGE_ME__password_used_to_encrypt_authorization_code
-                salt: "CHANGE_ME salt involved in authorization code hash"
+                password: !ENV SATOSA_ENCRYPTION_KEY
+                salt: !ENV SATOSA_SALT
                 keys:
                   key_defs:
                     - type: OCT
@@ -259,8 +263,8 @@ config:
             lifetime: 86400
             crypt_conf:
               kwargs:
-                password: CHANGE_ME__password_used_to_encrypt_refresh_tokens
-                salt: "CHANGE_ME salt involved in refresh token hash"
+                password: !ENV SATOSA_ENCRYPTION_KEY
+                salt: !ENV SATOSA_SALT
                 keys:
                   key_defs:
                     - type: OCT
