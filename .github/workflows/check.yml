@@ -41,25 +41,21 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.9"
           - "3.10"
           - "3.11"
+          - "3.12"
+          - "3.13"
+    services:
+      mongodb:
+        image: mongo:6
+        ports:
+          - 27017:27017
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install MongoDB
-        run: |
-          sudo apt-get install -y gnupg wget
-          sudo wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | sudo apt-key add -
-          sudo echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/4.4 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
-          sudo apt-get update
-          sudo apt-get install -y mongodb-org
-      - name: Start MongoDB
-        run: sudo systemctl start mongod
 
       - name: Install python dependencies
         run: |
@@ -69,6 +65,20 @@ jobs:
       - name: Install satosa_oidcop
         run: |
           python -m pip install -e .
+      - name: Wait for MongoDB
+        run: |
+          python -c "
+          import time
+          import pymongo
+          for i in range(30):
+              try:
+                  pymongo.MongoClient('mongodb://localhost:27017', serverSelectionTimeoutMS=1000).server_info()
+                  break
+              except Exception:
+                  time.sleep(1)
+          else:
+              raise SystemExit('MongoDB did not become ready in time')
+          "
       - name: pytest
         run: |
           pytest --cov=satosa_oidcop -v --cov-report term --cov-fail-under=90 tests/
